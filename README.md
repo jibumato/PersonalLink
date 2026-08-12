@@ -21,7 +21,7 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 | [docs/00-vision.md](docs/00-vision.md) | 構想書 v0.1(founding document・思想の原典) |
 | [docs/01-screen-design.md](docs/01-screen-design.md) | **画面設計書 = MVP仕様書 v0.1**。全20画面の仕様、Connection状態遷移、設計判断(D-1〜D-11)、KPI計測設計 |
 | [docs/02-data-model.md](docs/02-data-model.md) | データモデル v0.1。テーブル定義、不変条件、People OS憲法との対応表 |
-| [docs/03-design-language.md](docs/03-design-language.md) | デザイン言語「NEON-HUD」。データストリーム流体背景・半透明HUD・AR-ready透過原則 |
+| [docs/03-design-language.md](docs/03-design-language.md) | デザイン言語「GLASS-HUD」(白ベース)。データストリーム流体背景・半透明HUD・AR-ready透過原則 |
 | [prototype/index.html](prototype/index.html) | クリック可能プロトタイプ。コアループ全体を実際に操作できる(ブラウザで直接開くだけで動作) |
 
 ## プロトタイプの試し方
