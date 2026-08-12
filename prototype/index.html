@@ -1,0 +1,728 @@
+<title>PersonalLink プロトタイプ</title>
+<style>
+  :root{
+    --bg:#eef2f4; --surface:#ffffff; --ink:#1c2b33; --muted:#5b6b74;
+    --line:#d8e0e4; --accent:#2c6e8f; --accent-ink:#ffffff; --panel:#f7fafb;
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10181d; --surface:#1a242b; --ink:#e8eef1; --muted:#8fa1ab;
+      --line:#2c3a43; --accent:#6fb3d2; --accent-ink:#0d1a21; --panel:#152027;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10181d; --surface:#1a242b; --ink:#e8eef1; --muted:#8fa1ab;
+    --line:#2c3a43; --accent:#6fb3d2; --accent-ink:#0d1a21; --panel:#152027;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",system-ui,sans-serif;
+    line-height:1.6;
+  }
+  .page{max-width:1060px; margin:0 auto; padding:32px 16px 64px}
+  .intro h1{margin:0; font-size:1.5rem; letter-spacing:.01em; text-wrap:balance}
+  .intro .tag{display:inline-block; font-size:.72rem; letter-spacing:.12em; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:1px 10px; margin-bottom:10px}
+  .intro p{margin:.5em 0 0; color:var(--muted); max-width:62ch; font-size:.92rem}
+  .stage{display:flex; gap:28px; align-items:flex-start; justify-content:center; flex-wrap:wrap; margin-top:28px}
+
+  /* ---- phone frame (app inside is a fixed light product mock) ---- */
+  .phone{
+    width:375px; height:740px; border-radius:38px; background:#0e1417; padding:10px;
+    box-shadow:0 24px 60px rgba(10,25,35,.35), 0 0 0 1px rgba(255,255,255,.06) inset;
+    flex:none; position:relative;
+  }
+  .screen{
+    width:100%; height:100%; border-radius:30px; overflow:hidden; position:relative;
+    background:#f5f7f8; color:#1b2a38; display:flex; flex-direction:column;
+    font-size:15px;
+  }
+  .screen, .screen *{font-variant-numeric:tabular-nums}
+
+  /* app tokens (single light theme by design — product mock) */
+  .screen{ --a-brand:#2c6e8f; --a-deep:#1f4e66; --a-ink:#1b2a38; --a-mut:#697a85;
+    --a-line:#e2e8eb; --a-amber:#b06f1e; --a-amberbg:#fbf1de; --a-green:#2f7d5c; --a-greenbg:#e4f2eb;
+    --a-red:#c25454; --a-chip:#edf1f3; }
+
+  .appbar{display:flex; align-items:center; gap:10px; padding:14px 16px 10px; background:#fff; border-bottom:1px solid var(--a-line); flex:none}
+  .appbar .back{border:0; background:none; font-size:20px; color:var(--a-brand); cursor:pointer; padding:2px 6px 2px 0}
+  .appbar h2{margin:0; font-size:16px; font-weight:700; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .body{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch}
+  .pad{padding:20px}
+
+  .btn{display:block; width:100%; border:0; border-radius:12px; padding:14px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit}
+  .btn.pri{background:var(--a-brand); color:#fff}
+  .btn.pri:disabled{background:#b9c9d2; cursor:default}
+  .btn.sec{background:#fff; color:var(--a-brand); border:1.5px solid var(--a-brand)}
+  .btn.ghost{background:none; color:var(--a-mut); font-weight:500}
+  .btn+.btn{margin-top:10px}
+  .btn:focus-visible,.chip:focus-visible,button:focus-visible{outline:2px solid var(--a-brand); outline-offset:2px}
+
+  .avatar{width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; flex:none; background:#dcece4}
+  .avatar.me{background:#dbe7f0}
+  .avatar.lg{width:76px; height:76px; font-size:40px}
+
+  .badge{display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:700; border-radius:999px; padding:2px 9px}
+  .badge.time{background:var(--a-amberbg); color:var(--a-amber)}
+  .badge.perm{background:var(--a-greenbg); color:var(--a-green)}
+  .badge.end{background:#eceff1; color:var(--a-mut)}
+
+  .field{width:100%; border:1.5px solid var(--a-line); border-radius:12px; padding:12px 14px; font-size:16px; font-family:inherit; background:#fff; color:var(--a-ink)}
+  .field:focus{outline:none; border-color:var(--a-brand)}
+  .hint{font-size:12.5px; color:var(--a-mut); margin-top:8px}
+  .ok{color:var(--a-green); font-weight:700; font-size:13px}
+
+  .card{background:#fff; border:1px solid var(--a-line); border-radius:14px; padding:16px}
+  .card+.card{margin-top:12px}
+
+  /* welcome */
+  .hero{flex:1; display:flex; flex-direction:column; justify-content:center; padding:32px 28px; text-align:center}
+  .logo{font-size:44px}
+  .hero h1{font-size:22px; margin:14px 0 4px; letter-spacing:.02em}
+  .hero .copy{font-size:19px; font-weight:700; color:var(--a-deep); margin:18px 0 6px; text-wrap:balance}
+  .hero .sub{font-size:13px; color:var(--a-mut)}
+  .viaqr{margin:16px auto 0; background:#fff; border:1px solid var(--a-line); border-radius:14px; padding:10px 16px; display:flex; gap:10px; align-items:center; font-size:13px}
+
+  /* home */
+  .homehead{display:flex; align-items:center; gap:10px; padding:16px; background:#fff; border-bottom:1px solid var(--a-line)}
+  .homehead .id{font-size:13px; color:var(--a-mut)}
+  .homehead .name{font-weight:700}
+  .sect{font-size:12px; font-weight:700; letter-spacing:.08em; color:var(--a-mut); padding:16px 16px 6px}
+  .row{display:flex; gap:12px; align-items:center; padding:12px 16px; background:#fff; border-bottom:1px solid var(--a-line); cursor:pointer; width:100%; border-left:0;border-right:0;border-top:0; text-align:left; font-family:inherit; font-size:inherit; color:inherit}
+  .row .rmain{flex:1; min-width:0}
+  .row .rname{font-weight:700; display:flex; gap:8px; align-items:center}
+  .row .rlast{font-size:13px; color:var(--a-mut); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px}
+  .empty{padding:48px 32px; text-align:center; color:var(--a-mut); font-size:14px}
+  .fab{position:absolute; left:50%; transform:translateX(-50%); bottom:22px; width:150px; border:0; border-radius:999px; background:var(--a-brand); color:#fff; font-size:15px; font-weight:700; padding:14px 0; cursor:pointer; box-shadow:0 8px 20px rgba(31,78,102,.35); font-family:inherit}
+
+  /* QR */
+  .tabs{display:flex; background:#fff; border-bottom:1px solid var(--a-line)}
+  .tabs button{flex:1; border:0; background:none; padding:12px; font-size:14px; font-weight:700; color:var(--a-mut); border-bottom:2.5px solid transparent; cursor:pointer; font-family:inherit}
+  .tabs button.on{color:var(--a-brand); border-bottom-color:var(--a-brand)}
+  .qrbox{width:216px; height:216px; margin:22px auto 0; background:#fff; border:1px solid var(--a-line); border-radius:16px; display:flex; align-items:center; justify-content:center; position:relative}
+  .qrgrid{width:172px; height:172px; display:grid; grid-template-columns:repeat(12,1fr); gap:2px}
+  .qrgrid i{background:#1b2a38; border-radius:1px}
+  .qrgrid i.o{background:transparent}
+  .ttl{font-size:12px; color:var(--a-mut); text-align:center; margin-top:10px}
+  .chips{display:flex; gap:8px; justify-content:center; margin-top:14px}
+  .chip{border:1.5px solid var(--a-line); background:#fff; border-radius:999px; padding:6px 14px; font-size:13px; font-weight:700; color:var(--a-mut); cursor:pointer; font-family:inherit}
+  .chip.on{border-color:var(--a-amber); color:var(--a-amber); background:var(--a-amberbg)}
+  .cam{margin:22px 16px 0; height:280px; border-radius:16px; background:
+    radial-gradient(circle at 30% 30%, #2a3a44, #17232b 70%); position:relative; display:flex; align-items:center; justify-content:center}
+  .cam .frame{width:180px; height:180px; border:2.5px solid rgba(255,255,255,.85); border-radius:14px}
+  .cam p{position:absolute; bottom:14px; color:#cfdbe2; font-size:13px; margin:0}
+
+  /* confirm */
+  .cond{margin-top:14px}
+  .cond li{list-style:none; display:flex; gap:10px; padding:9px 0; font-size:13.5px; border-bottom:1px solid var(--a-line); align-items:flex-start}
+  .cond li:last-child{border-bottom:0}
+  .cond ul{margin:0; padding:0}
+  .cond .no{color:var(--a-mut)}
+  .cond b.lock{color:var(--a-deep)}
+
+  /* established overlay */
+  .ovl{position:absolute; inset:0; background:rgba(20,35,45,.55); display:flex; align-items:center; justify-content:center; padding:24px; z-index:30}
+  .ovl .box{background:#fff; border-radius:20px; padding:28px 22px; width:100%; text-align:center; color:#1b2a38}
+  .pair{display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:12px}
+  .pair .wire{width:36px; height:2px; background:var(--a-green); border-radius:2px; position:relative}
+  .pair .wire::after{content:"✓"; position:absolute; top:-11px; left:50%; transform:translateX(-50%); color:var(--a-green); font-size:12px; font-weight:700}
+  @media (prefers-reduced-motion:no-preference){
+    .ovl .box{animation:pop .35s ease}
+    @keyframes pop{from{transform:scale(.9); opacity:0}to{transform:scale(1); opacity:1}}
+  }
+
+  /* chat */
+  .chatlist{flex:1; overflow-y:auto; padding:14px 12px; display:flex; flex-direction:column; gap:8px}
+  .msg{max-width:76%; padding:9px 13px; border-radius:16px; font-size:14.5px; line-height:1.5; word-break:break-word}
+  .msg.me{align-self:flex-end; background:var(--a-brand); color:#fff; border-bottom-right-radius:4px}
+  .msg.them{align-self:flex-start; background:#e9eef1; border-bottom-left-radius:4px}
+  .msg.sys{align-self:center; background:none; color:var(--a-mut); font-size:12px; text-align:center; max-width:92%; padding:2px}
+  .msg .st{display:block; font-size:10px; opacity:.7; text-align:right; margin-top:2px}
+  .photo{width:180px; height:120px; border-radius:12px; background:linear-gradient(135deg,#9fc3d4,#3f7d9b); display:flex; align-items:center; justify-content:center; font-size:44px}
+  .banner{background:var(--a-amberbg); color:var(--a-amber); font-size:12.5px; padding:9px 14px; display:flex; gap:8px; align-items:center; justify-content:space-between; border-bottom:1px solid #f0dfc0; flex:none}
+  .banner button{border:0; background:var(--a-amber); color:#fff; border-radius:999px; padding:4px 12px; font-size:12px; font-weight:700; cursor:pointer; flex:none; font-family:inherit}
+  .inputbar{display:flex; gap:8px; padding:10px 12px; background:#fff; border-top:1px solid var(--a-line); align-items:center; flex:none}
+  .inputbar input{flex:1; border:1.5px solid var(--a-line); border-radius:999px; padding:9px 14px; font-size:14px; font-family:inherit; min-width:0; background:#fff; color:var(--a-ink)}
+  .inputbar input:focus{outline:none; border-color:var(--a-brand)}
+  .icnbtn{border:0; background:none; font-size:21px; cursor:pointer; position:relative; padding:4px; flex:none; font-family:inherit}
+  .icnbtn .lk{position:absolute; right:-2px; bottom:-2px; font-size:11px}
+  .send{border:0; background:var(--a-brand); color:#fff; border-radius:999px; width:38px; height:38px; font-size:16px; cursor:pointer; flex:none}
+  .endbar{padding:14px 16px; background:#eceff1; text-align:center; font-size:13px; color:var(--a-mut); flex:none}
+  .endbar .btn{margin-top:10px}
+  .propcard{align-self:flex-start; background:#fff; border:1.5px solid var(--a-brand); border-radius:14px; padding:12px 14px; max-width:82%; font-size:13.5px}
+  .propcard .bb{display:flex; gap:8px; margin-top:10px}
+  .propcard .bb button{flex:1; border-radius:9px; padding:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; border:1.5px solid var(--a-line); background:#fff; color:var(--a-mut)}
+  .propcard .bb button.y{background:var(--a-brand); border-color:var(--a-brand); color:#fff}
+
+  /* modal in app */
+  .amodal{position:absolute; inset:0; background:rgba(20,35,45,.45); display:flex; align-items:flex-end; z-index:25}
+  .amodal .sheet{background:#fff; border-radius:20px 20px 0 0; padding:22px 20px 26px; width:100%; color:#1b2a38}
+  .amodal h3{margin:0 0 6px; font-size:16px}
+  .amodal p{margin:0 0 16px; font-size:13.5px; color:var(--a-mut)}
+
+  /* info / renewal */
+  .lvls{display:flex; gap:6px; margin:14px 0 4px}
+  .lvls .lv{flex:1; text-align:center; font-size:11px; font-weight:700; padding:8px 2px; border-radius:9px; background:var(--a-chip); color:#9aabb5}
+  .lvls .lv.on{background:var(--a-brand); color:#fff}
+  .feat{display:flex; align-items:center; gap:10px; padding:12px 2px; border-bottom:1px solid var(--a-line); font-size:14px}
+  .feat:last-child{border-bottom:0}
+  .feat .fx{flex:1}
+  .feat small{display:block; color:var(--a-mut); font-size:11.5px}
+  .feat .act{border:1.5px solid var(--a-brand); color:var(--a-brand); background:#fff; border-radius:999px; padding:5px 13px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit}
+  .feat .act:disabled{border-color:var(--a-line); color:#b3c0c8; cursor:default}
+  .danger{color:var(--a-red)}
+  .review{display:flex; gap:14px; justify-content:center; margin:14px 0; font-size:13px; color:var(--a-mut)}
+  .review b{color:var(--a-ink); font-size:17px; display:block; text-align:center}
+
+  .toast{position:absolute; top:14px; left:50%; transform:translateX(-50%); background:#22343f; color:#fff; font-size:12.5px; padding:9px 16px; border-radius:999px; z-index:40; max-width:88%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.3)}
+
+  /* ---- demo panel ---- */
+  .panel{width:300px; flex:none; display:flex; flex-direction:column; gap:14px}
+  .pcard{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px}
+  .pcard h3{margin:0 0 4px; font-size:.8rem; letter-spacing:.1em; color:var(--muted); font-weight:700}
+  .pcard .cur{font-size:1.05rem; font-weight:700}
+  .pcard .curdesc{font-size:.82rem; color:var(--muted); margin-top:2px}
+  .pbtn{display:block; width:100%; border:1px solid var(--line); background:var(--panel); color:var(--ink); border-radius:10px; padding:10px 12px; font-size:.86rem; text-align:left; cursor:pointer; font-family:inherit}
+  .pbtn+.pbtn{margin-top:8px}
+  .pbtn:hover{border-color:var(--accent)}
+  .pbtn:disabled{opacity:.45; cursor:default}
+  .pbtn.warn{color:var(--accent); font-weight:700}
+  .pstat{font-size:.82rem; color:var(--muted); margin:6px 0 0}
+  .pstat b{color:var(--ink)}
+  .seg{display:flex; gap:6px; margin-top:8px}
+  .seg button{flex:1; border:1px solid var(--line); background:var(--panel); color:var(--muted); border-radius:8px; padding:7px 4px; font-size:.78rem; cursor:pointer; font-family:inherit}
+  .seg button.on{border-color:var(--accent); color:var(--accent); font-weight:700}
+  .maplist{margin:8px 0 0; padding:0; list-style:none; font-size:.8rem; color:var(--muted)}
+  .maplist li{padding:3px 0}
+  .maplist b{color:var(--ink); font-weight:600}
+  footer.note{margin-top:34px; text-align:center; font-size:.8rem; color:var(--muted)}
+</style>
+
+<div class="page">
+  <header class="intro">
+    <span class="tag">PROTOTYPE v0.1</span>
+    <h1>PersonalLink — クリック可能プロトタイプ</h1>
+    <p>コアループ「QR表示 → 読み取り → Connection成立 → チャット → 7日間 → 継続確認 → レベル上昇」を実際に操作できます。相手(田中さん)の動きは自動シミュレーションです。右のパネルで時間を進めると期限まわりの挙動を確認できます。</p>
+  </header>
+
+  <div class="stage">
+    <div class="phone"><div class="screen" id="screen"></div></div>
+
+    <aside class="panel">
+      <div class="pcard">
+        <h3>現在の画面</h3>
+        <div class="cur" id="p-cur">A-1 ウェルカム</div>
+        <div class="curdesc" id="p-desc">仕様書 §4 参照</div>
+      </div>
+      <div class="pcard" id="p-time" hidden>
+        <h3>デモ操作 — 時間</h3>
+        <div class="pstat">経過: <b id="p-elapsed">0日</b> / 期限まで <b id="p-remain">7日</b></div>
+        <div style="margin-top:10px">
+          <button class="pbtn" id="b-day">⏩ 1日進める</button>
+          <button class="pbtn" id="b-near">⏳ 期限24時間前へ</button>
+          <button class="pbtn" id="b-hit">⌛ 期限到達(猶予48hへ)</button>
+        </div>
+      </div>
+      <div class="pcard" id="p-partner" hidden>
+        <h3>デモ操作 — 田中さんの継続選択</h3>
+        <div class="pstat">継続確認で田中さん側が選ぶ内容:</div>
+        <div class="seg" id="seg-partner">
+          <button data-v="continue" class="on">継続する</button>
+          <button data-v="end">継続しない</button>
+          <button data-v="none">未選択</button>
+        </div>
+        <div class="pstat" style="margin-top:8px">※「継続しない」でも相手には通知されず、期限で静かに終了します(設計判断 D-3)</div>
+      </div>
+      <div class="pcard">
+        <h3>仕様書との対応</h3>
+        <ul class="maplist">
+          <li><b>A</b> オンボーディング(60秒登録)</li>
+          <li><b>B</b> QR接続(キラー体験)</li>
+          <li><b>C</b> チャット / レベル提案</li>
+          <li><b>D</b> 期限・継続確認・終了</li>
+          <li><b>E</b> Connection詳細</li>
+        </ul>
+        <button class="pbtn warn" id="b-reset" style="margin-top:12px">↺ デモを最初から</button>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="note">docs/01-screen-design.md(画面設計書 = MVP仕様書)と対応。グループ・設定画面は仕様書のみ(プロトタイプ範囲外)。</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+const screenEl = $("#screen");
+
+/* ---------- state ---------- */
+const TOTAL_H = 168, GRACE_H = 48;
+let S;
+function init(){
+  S = {
+    view:"welcome", qrTab:"my", handle:"", name:"", regStep:0,
+    expiryDays:7, conn:null, partnerChoice:"continue", overlay:null
+  };
+  render();
+}
+function newConn(){
+  return {
+    elapsedH:0, permanent:false, level2:false, proposalPending:false,
+    myChoice:null, partnerApplied:false, graceMsg:false, endMsg:false,
+    msgs:[ sys("田中さんとつながりました(期限: 7日間)") ]
+  };
+}
+function sys(t){ return {k:"sys", t}; }
+
+/* derived connection status */
+function remainH(c){ return TOTAL_H - c.elapsedH; }
+function status(c){
+  if(c.permanent) return "permanent";
+  const r = remainH(c);
+  if(r > 0) return "active";
+  if(r > -GRACE_H) return "grace";
+  return "expired";
+}
+function fmtRemain(c){
+  const r = remainH(c);
+  if(r >= 48) return "残り" + Math.ceil(r/24) + "日";
+  if(r > 0) return "残り" + Math.ceil(r) + "時間";
+  return "期限終了";
+}
+
+/* time control */
+function advance(h){
+  const c = S.conn; if(!c || c.permanent) return;
+  const before = status(c);
+  c.elapsedH = Math.min(c.elapsedH + h, TOTAL_H + GRACE_H);
+  applyTransitions(before);
+  render();
+}
+function jumpTo(remain){
+  const c = S.conn; if(!c || c.permanent) return;
+  const before = status(c);
+  c.elapsedH = TOTAL_H - remain;
+  applyTransitions(before);
+  render();
+}
+function applyTransitions(before){
+  const c = S.conn, st = status(c);
+  if(st !== "active" && !c.graceMsg && !c.permanent){
+    // 期限到達の評価: 双方継続なら恒久化(本来は到達前に成立している)
+    if(c.myChoice === "continue" && S.partnerChoice === "continue"){ makePermanent(); return; }
+    c.graceMsg = true;
+    if(st === "grace") c.msgs.push(sys("この接続は期限を迎えました。48時間以内なら継続できます"));
+  }
+  if(st === "expired" && !c.endMsg){
+    c.endMsg = true;
+    c.msgs.push(sys("期限が終了しました")); // 誰の選択かは表示しない(D-3)
+  }
+}
+function makePermanent(){
+  const c = S.conn;
+  c.permanent = true; c.myChoice = "continue";
+  c.msgs.push(sys("🎉 このConnectionは恒久になりました ♾"));
+  toast("♾ 恒久のConnectionになりました");
+}
+
+/* my renewal choice */
+function choose(v){
+  const c = S.conn;
+  c.myChoice = v;
+  if(v === "continue"){
+    if(S.partnerChoice === "continue"){
+      // 相手の選択がそろった瞬間に即恒久化(デモでは少し遅らせて再現)
+      S.view = "chat"; render();
+      setTimeout(()=>{ makePermanent(); render(); }, 900);
+      return;
+    }
+    toast("継続を選びました。相手の選択を待っています");
+  } else if(v === "end"){
+    toast("記録しました。期限が来ると静かに終了します(相手には通知されません)");
+  }
+  S.view = "chat"; render();
+}
+
+/* messages */
+let replied = false;
+function sendText(){
+  const inp = $("#msg-in"); if(!inp || !inp.value.trim()) return;
+  const c = S.conn;
+  c.msgs.push({k:"me", t:inp.value.trim()});
+  inp.value = "";
+  render(); scrollChat();
+  const ni = $("#msg-in"); if(ni) ni.focus();
+  if(!replied){
+    replied = true;
+    setTimeout(()=>{ c.msgs.push({k:"them", t:"こちらこそ、今日はありがとうございました!また写真イベントの情報送りますね 😊"}); render(); scrollChat(); }, 1100);
+  }
+}
+function sendPhoto(){
+  const c = S.conn;
+  if(!c.level2){ S.overlay = "propose"; render(); return; }
+  c.msgs.push({k:"me", t:"", photo:true});
+  render(); scrollChat();
+}
+function propose(){
+  const c = S.conn;
+  c.proposalPending = true; S.overlay = null;
+  c.msgs.push(sys("写真・ファイル共有(Lv.2)を提案しました"));
+  render(); scrollChat();
+  setTimeout(()=>{
+    c.proposalPending = false; c.level2 = true;
+    c.msgs.push(sys("📷 写真・ファイル共有が解放されました(Lv.2)"));
+    toast("田中さんが承諾しました");
+    render(); scrollChat();
+  }, 1800);
+}
+
+function toast(t){
+  const old = screenEl.querySelector(".toast"); if(old) old.remove();
+  const d = document.createElement("div");
+  d.className = "toast"; d.textContent = t;
+  screenEl.appendChild(d);
+  setTimeout(()=>d.remove(), 2600);
+}
+function scrollChat(){
+  const l = $("#chatlist"); if(l) l.scrollTop = l.scrollHeight;
+}
+
+/* ---------- views ---------- */
+const AV_ME = '<div class="avatar me">🙂</div>';
+const AV_TA = '<div class="avatar">📷</div>';
+
+function vWelcome(){
+  return `<div class="hero">
+    <div class="logo">🔗</div>
+    <h1>PersonalLink</h1>
+    <p class="copy">LINEを教える前に、<br>つながろう。</p>
+    <p class="sub">電話番号もメールも不要。<br>期限付きで、気軽につながる。</p>
+    <div style="margin-top:28px">
+      <button class="btn pri" data-go="signup-id">はじめる</button>
+      <button class="btn ghost" data-act="login-note">ログイン</button>
+    </div>
+  </div>`;
+}
+function vSignupId(){
+  const v = S.handle;
+  const okc = /^[a-z0-9_]{3,20}$/.test(v);
+  return `${bar("Universal IDを決める")}
+  <div class="body pad">
+    <p style="margin:4px 0 16px; font-size:14px">あなたの公開IDです。あとから変更もできます(90日に1回)。</p>
+    <div style="display:flex; align-items:center; gap:6px">
+      <span style="font-size:20px; font-weight:700; color:var(--a-brand)">@</span>
+      <input class="field" id="in-handle" value="${esc(v)}" placeholder="satoshi" autocomplete="off">
+    </div>
+    <p class="hint">3〜20文字 / 英小文字・数字・アンダースコア</p>
+    ${v ? (okc ? '<p class="ok">✓ このIDは利用できます</p>' : '<p class="hint" style="color:var(--a-red)">使える文字は英小文字・数字・_ です(3文字以上)</p>') : ""}
+    <p class="hint" style="margin-top:14px">💡 表示名(ニックネーム)は別に設定できます。IDに本名を使う必要はありません。</p>
+    <div style="margin-top:22px"><button class="btn pri" data-go="signup-passkey" ${okc?"":"disabled"}>次へ</button></div>
+  </div>`;
+}
+function vSignupPasskey(){
+  const done = S.regStep >= 1;
+  return `${bar("Passkeyを作成")}
+  <div class="body pad">
+    <div class="card" style="text-align:center; padding:26px 16px">
+      <div style="font-size:40px">${done ? "✅" : "🔐"}</div>
+      <p style="margin:10px 0 0; font-size:14px">${done ? "Passkeyを作成しました" : "パスワードは作りません。<br>この端末の顔認証・指紋がそのまま鍵になります。"}</p>
+      ${done ? "" : '<div style="margin-top:16px"><button class="btn pri" data-act="make-passkey">Passkeyを作成(デモ)</button></div>'}
+    </div>
+    ${done ? `
+    <div class="card" style="margin-top:14px">
+      <b style="font-size:14px">リカバリーコード</b>
+      <p class="hint" style="margin-top:6px">電話番号もメールも登録しないため、<b>このコードだけ</b>がアカウント回復の手段です。必ず保存してください。</p>
+      <div style="font-family:ui-monospace,monospace; background:var(--a-chip); border-radius:10px; padding:12px; margin-top:10px; font-size:13px; letter-spacing:.06em">K7QM-X2RF-9WPL-D4HT<br>V8NJ-3CZE-YB6A-5GKS</div>
+      <label style="display:flex; gap:8px; align-items:center; margin-top:12px; font-size:13.5px; cursor:pointer">
+        <input type="checkbox" id="ck-saved"> 安全な場所に保存しました
+      </label>
+      <div style="margin-top:14px"><button class="btn pri" id="b-pk-next" disabled data-go="signup-profile">次へ</button></div>
+    </div>` : ""}
+  </div>`;
+}
+function vSignupProfile(){
+  return `${bar("プロフィール(公開)")}
+  <div class="body pad">
+    <div style="text-align:center; margin-bottom:14px"><div class="avatar me lg" style="margin:0 auto">🙂</div></div>
+    <label class="hint" style="display:block; margin-bottom:4px">表示名(本名でなくてOK)</label>
+    <input class="field" id="in-name" value="${esc(S.name)}" placeholder="さとし">
+    <label class="hint" style="display:block; margin:14px 0 4px">ひとこと(任意)</label>
+    <input class="field" placeholder="カメラと登山が好きです">
+    <div class="card" style="margin-top:18px; background:var(--a-chip); border:0">
+      <p style="margin:0; font-size:12.5px; color:var(--a-mut)">ここに入力した内容は <b>Level 0(公開)</b> です。あなたのQRを読み取った相手に表示されます。<b>それ以外の情報は、あなたが許可するまで誰にも共有されません。</b></p>
+    </div>
+    <div style="margin-top:18px"><button class="btn pri" data-act="finish-signup">はじめる</button></div>
+  </div>`;
+}
+function vHome(){
+  const c = S.conn;
+  let list;
+  if(!c){
+    list = `<div class="empty">まだConnectionがありません。<br>イベントで会った人にQRを見せてみましょう。<br><br>👇</div>`;
+  } else {
+    const st = status(c);
+    const bdg = c.permanent ? '<span class="badge perm">♾ 恒久</span>'
+      : st === "active" ? `<span class="badge time">⏳ ${fmtRemain(c)}</span>`
+      : st === "grace" ? '<span class="badge time">⌛ 猶予中</span>'
+      : '<span class="badge end">終了</span>';
+    const last = c.msgs[c.msgs.length-1];
+    const near = (st==="active" && remainH(c) <= 24) || st==="grace";
+    list = (near ? '<div class="sect">まもなく期限</div>' : '<div class="sect">つながり中</div>') +
+      `<button class="row" data-go="chat">${AV_TA}
+        <span class="rmain"><span class="rname">田中さん ${bdg}</span>
+        <span class="rlast">${esc(last.t || (last.photo ? "📷 写真" : ""))}</span></span></button>`;
+  }
+  return `<div class="homehead">${AV_ME}<div><div class="name">${esc(S.name||"さとし")}</div><div class="id">@${esc(S.handle||"satoshi")}</div></div></div>
+  <div class="body">${list}</div>
+  <button class="fab" data-go="qr">🔲 QR</button>`;
+}
+function vQr(){
+  const my = S.qrTab === "my";
+  let inner;
+  if(my){
+    let cells = "";
+    for(let i=0;i<144;i++){ cells += `<i class="${((i*7+3)%11<5||i%13===0)?"":"o"}"></i>`; }
+    inner = `
+    <div class="qrbox"><div class="qrgrid" aria-label="QRコード(デモ)">${cells}</div></div>
+    <p class="ttl">🔄 このQRは5分ごとに自動更新されます</p>
+    <div style="text-align:center; margin-top:10px"><b>${esc(S.name||"さとし")}</b> <span style="color:var(--a-mut); font-size:13px">@${esc(S.handle||"satoshi")}</span></div>
+    <p class="ttl" style="margin-top:16px">接続の期限</p>
+    <div class="chips">
+      ${[1,7,30].map(d=>`<button class="chip ${S.expiryDays===d?"on":""}" data-exp="${d}">${d}日</button>`).join("")}
+    </div>
+    <p class="hint" style="text-align:center; padding:0 24px">読み取った相手とは <b>Level 1(メッセージのみ)</b> でつながります</p>`;
+  } else {
+    inner = `
+    <div class="cam"><div class="frame"></div><p>相手のQRを読み取ってください</p></div>
+    <div class="pad">
+      <button class="btn pri" data-act="scan-demo">📷 田中さんのQRを読み取る(デモ)</button>
+      <button class="btn ghost" data-act="id-note">IDで接続(@ID を直接入力)</button>
+    </div>`;
+  }
+  return `${bar("QR", "home")}
+  <div class="tabs">
+    <button class="${my?"on":""}" data-tab="my">マイQR</button>
+    <button class="${my?"":"on"}" data-tab="scan">読み取り</button>
+  </div>
+  <div class="body">${inner}</div>`;
+}
+function vConfirm(){
+  return `${bar("接続の確認", "qr")}
+  <div class="body pad">
+    <div style="text-align:center; padding:8px 0 2px">
+      <div class="avatar lg" style="margin:0 auto">📷</div>
+      <div style="font-weight:700; font-size:17px; margin-top:8px">田中さん</div>
+      <div style="color:var(--a-mut); font-size:13px">@tanaka_photo</div>
+      <div style="font-size:13px; margin-top:4px">「風景写真を撮っています」</div>
+    </div>
+    <div class="card cond">
+      <ul>
+        <li>⏳ <span><b>期限: ${S.expiryDays}日間</b><br><small style="color:var(--a-mut)">期限が来る前に、継続するか選べます</small></span></li>
+        <li>🔓 <span>共有されるもの: <b>公開プロフィールのみ</b></span></li>
+        <li>🔒 <span class="no">共有されないもの: <b class="lock">電話番号・メールアドレス・LINE ID</b></span></li>
+      </ul>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn pri" data-act="connect">つながる</button>
+      <button class="btn ghost" data-go="qr">やめる</button>
+    </div>
+  </div>`;
+}
+function vChat(){
+  const c = S.conn, st = status(c);
+  const bdg = c.permanent ? '<span class="badge perm">♾ 恒久</span>'
+    : st === "active" ? `<span class="badge time">⏳ ${fmtRemain(c)}</span>`
+    : st === "grace" ? '<span class="badge time">⌛ 猶予中</span>'
+    : '<span class="badge end">終了</span>';
+  const msgs = c.msgs.map(m=>{
+    if(m.k === "sys") return `<div class="msg sys">${esc(m.t)}</div>`;
+    if(m.photo) return `<div class="msg me" style="padding:5px"><div class="photo">🏔️</div><span class="st">送信済み</span></div>`;
+    if(m.k === "me") return `<div class="msg me">${esc(m.t)}<span class="st">送信済み</span></div>`;
+    return `<div class="msg them">${esc(m.t)}</div>`;
+  }).join("");
+  const expiring = st === "active" && remainH(c) <= 24 && !c.permanent;
+  const banner = (expiring && c.myChoice === null) ?
+    `<div class="banner"><span>⏳ この接続はあと${Math.ceil(remainH(c))}時間で期限になります</span><button data-go="renewal">継続確認へ</button></div>` :
+    (st === "grace" && c.myChoice !== "end" ? `<div class="banner"><span>⌛ 期限が終了しました。あと${Math.ceil(GRACE_H + remainH(c))}時間以内なら継続できます</span><button data-go="renewal">継続確認へ</button></div>` : "");
+  let bottom;
+  if(st === "active" || st === "permanent"){
+    bottom = `<div class="inputbar">
+      <button class="icnbtn" data-act="photo" aria-label="写真を送る">📷${c.level2?"":'<span class="lk">🔒</span>'}</button>
+      <button class="icnbtn" data-act="photo" aria-label="ファイルを送る">📎${c.level2?"":'<span class="lk">🔒</span>'}</button>
+      <input id="msg-in" placeholder="メッセージ" autocomplete="off">
+      <button class="send" data-act="send" aria-label="送信">➤</button>
+    </div>`;
+  } else if(st === "grace"){
+    bottom = `<div class="endbar">期限が終了したため、メッセージは送れません(閲覧は可能です)</div>`;
+  } else {
+    bottom = `<div class="endbar">接続は終了しています<button class="btn sec" data-act="del-note">履歴を削除</button></div>`;
+  }
+  return `<div class="appbar">
+    <button class="back" data-go="home" aria-label="戻る">‹</button>
+    <button style="border:0;background:none;display:flex;gap:10px;align-items:center;flex:1;cursor:pointer;font-family:inherit;text-align:left;padding:0;color:inherit" data-go="info">
+      ${AV_TA}<span><span style="font-weight:700;font-size:15px">田中さん</span><br>${bdg}</span>
+    </button>
+  </div>
+  ${banner}
+  <div class="chatlist" id="chatlist">${msgs}</div>
+  ${bottom}
+  ${S.overlay === "propose" ? ovlPropose() : ""}`;
+}
+function ovlPropose(){
+  return `<div class="amodal" data-act="close-ovl"><div class="sheet" data-stop="1">
+    <h3>📷 写真・ファイル共有を解放しますか?</h3>
+    <p>田中さんが承諾すると、お互いに写真やファイルを送れるようになります(Lv.2)。承諾されるまでは今まで通りです。</p>
+    <button class="btn pri" data-act="do-propose">提案する</button>
+    <button class="btn ghost" data-act="close-ovl">キャンセル</button>
+  </div></div>`;
+}
+function vRenewal(){
+  const c = S.conn;
+  return `${bar("継続確認", "chat")}
+  <div class="body pad" style="text-align:center">
+    <div class="avatar lg" style="margin:14px auto 8px">📷</div>
+    <div style="font-weight:700; font-size:17px">田中さん</div>
+    <div class="review">
+      <span><b>7日</b>つながった</span>
+      <span><b>${c.msgs.filter(m=>m.k!=="sys").length}通</b>やり取り</span>
+      ${c.level2 ? "<span><b>Lv.2</b>写真共有中</span>" : ""}
+    </div>
+    <p style="font-size:16px; font-weight:700; margin:18px 0 8px">田中さんとの接続を継続しますか?</p>
+    <p class="hint" style="text-align:left">お互いが「継続」を選ぶと、期限のないConnection(♾恒久)になります。継続しない場合、期限が来ると接続は終了します。<b>どちらを選んだかは相手に通知されません。</b></p>
+    <div style="margin-top:20px">
+      <button class="btn pri" data-act="ch-continue">♾ 継続する</button>
+      <button class="btn sec" style="border-color:var(--a-line); color:var(--a-mut)" data-act="ch-end">継続しない</button>
+      <button class="btn ghost" data-go="chat">あとで決める</button>
+    </div>
+    ${c.myChoice === "continue" ? '<p class="ok" style="margin-top:14px">✓ 継続を選択済み — 相手の選択を待っています</p>' : ""}
+  </div>`;
+}
+function vInfo(){
+  const c = S.conn, st = status(c);
+  const lv = c.level2 ? 2 : 1;
+  const timeline = c.permanent ? '<span class="badge perm">♾ 恒久のConnection</span>'
+    : st === "active" ? `<span class="badge time">⏳ ${fmtRemain(c)}</span>` : '<span class="badge end">期限終了</span>';
+  return `${bar("Connection詳細", "chat")}
+  <div class="body pad">
+    <div style="text-align:center">
+      <div class="avatar lg" style="margin:0 auto">📷</div>
+      <div style="font-weight:700; font-size:17px; margin-top:8px">田中さん <span style="font-weight:400; color:var(--a-mut); font-size:13px">@tanaka_photo</span></div>
+      <div style="margin-top:8px">${timeline}</div>
+    </div>
+    <div class="lvls" aria-label="Connection Level">
+      ${[0,1,2,3,4].map(n=>`<span class="lv ${n<=lv?"on":""}">Lv.${n}</span>`).join("")}
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="feat"><span>✅</span><span class="fx">メッセージ<small>Lv.1 / つながった時から</small></span></div>
+      <div class="feat"><span>${c.level2?"✅":"🔒"}</span><span class="fx">写真・ファイル<small>Lv.2 / 双方の同意で解放</small></span>
+        ${c.level2 ? "" : `<button class="act" data-act="photo" ${st==="active"||c.permanent?"":"disabled"}>${c.proposalPending?"提案中":"提案する"}</button>`}</div>
+      <div class="feat"><span>🔒</span><span class="fx">音声・通話<small>Lv.3 / 今後のアップデートで解放</small></span><button class="act" disabled>準備中</button></div>
+      <div class="feat"><span>🔒</span><span class="fx">詳細プロフィール<small>Lv.4 / 双方の同意で解放</small></span><button class="act" disabled>提案する</button></div>
+    </div>
+    ${!c.permanent && st === "active" ? '<div style="margin-top:14px"><button class="btn sec" data-act="prop-perm">♾ 恒久化を提案(期限をなくす)</button></div>' : ""}
+    <div class="card" style="margin-top:14px">
+      <div class="feat"><span>🚫</span><span class="fx danger">ブロック<small>相手には通知されません</small></span></div>
+      <div class="feat"><span>⚠️</span><span class="fx danger">通報<small>メッセージ提供はあなたの同意時のみ</small></span></div>
+    </div>
+  </div>`;
+}
+
+/* helpers */
+function bar(title, back){
+  return `<div class="appbar">${back?`<button class="back" data-go="${back}" aria-label="戻る">‹</button>`:""}<h2>${esc(title)}</h2></div>`;
+}
+function esc(s){ return String(s??"").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch])); }
+
+/* ---------- render ---------- */
+const VIEWS = {
+  welcome:[vWelcome,"A-1 ウェルカム","登録60秒以内が目標(§4-A)"],
+  "signup-id":[vSignupId,"A-2 Universal ID取得","@ID = Universal Identityの入口"],
+  "signup-passkey":[vSignupPasskey,"A-3 Passkey登録","電話番号・メール不要(D-7)"],
+  "signup-profile":[vSignupProfile,"A-4 プロフィール設定","Level 0(公開)の教育を兼ねる"],
+  home:[vHome,"B-1 ホーム","期限接近を最上部に表示"],
+  qr:[null,"B-2/B-3 QR","表示=接続条件の提示・読み取り"],
+  confirm:[vConfirm,"B-4 接続確認","「共有されないもの」の明示が核心"],
+  chat:[vChat,"C-1 チャット","期限バッジ常時表示・既読なし(D-8)"],
+  renewal:[vRenewal,"D-2 継続確認","選択は相手に通知されない(D-3)"],
+  info:[vInfo,"E-1 Connection詳細","レベルと期限は独立の2軸(D-1)"]
+};
+function render(){
+  const v = VIEWS[S.view];
+  const fn = S.view === "qr" ? vQr : v[0];
+  screenEl.innerHTML = fn() + (S.overlay === "established" ? ovlEstablished() : "");
+  // demo panel
+  let label = v[1], desc = v[2];
+  if(S.view === "qr"){ label = S.qrTab === "my" ? "B-2 マイQR表示" : "B-3 QR読み取り"; }
+  $("#p-cur").textContent = label;
+  $("#p-desc").textContent = desc;
+  const c = S.conn;
+  $("#p-time").hidden = !c || c.permanent || status(c) === "expired";
+  $("#p-partner").hidden = !c || c.permanent || !(status(c) !== "active" || remainH(c) <= 24) || status(c) === "expired";
+  if(c){
+    $("#p-elapsed").textContent = (c.elapsedH/24).toFixed(1).replace(/\.0$/,"") + "日";
+    $("#p-remain").textContent = c.permanent ? "♾(恒久)" : fmtRemain(c).replace("残り","");
+  }
+  const ck = $("#ck-saved");
+  if(ck){ ck.addEventListener("change", e => { $("#b-pk-next").disabled = !e.target.checked; }); }
+  const hi = $("#in-handle");
+  if(hi){ hi.addEventListener("input", e => { S.handle = e.target.value.trim().toLowerCase(); render(); const el=$("#in-handle"); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }); }
+  scrollChat();
+}
+function ovlEstablished(){
+  return `<div class="ovl"><div class="box">
+    <div class="pair"><div class="avatar me">🙂</div><div class="wire"></div><div class="avatar">📷</div></div>
+    <p style="font-size:17px; font-weight:700; margin:4px 0">田中さんとつながりました</p>
+    <span class="badge time">⏳ ${S.expiryDays}日間</span>
+    <p style="font-size:12.5px; color:#697a85; margin:10px 0 16px">電話番号・メール・LINE IDは共有されていません</p>
+    <button class="btn pri" data-act="start-chat">メッセージを送る</button>
+    <button class="btn ghost" data-act="later">あとで</button>
+  </div></div>`;
+}
+
+/* ---------- events ---------- */
+screenEl.addEventListener("click", e => {
+  const t = e.target.closest("[data-go],[data-act],[data-tab],[data-exp],[data-stop]");
+  if(!t) return;
+  if(t.dataset.stop){ e.stopPropagation(); if(!t.dataset.act && !t.dataset.go) return; }
+  if(t.dataset.tab){ S.qrTab = t.dataset.tab; render(); return; }
+  if(t.dataset.exp){ S.expiryDays = +t.dataset.exp; render(); return; }
+  if(t.dataset.go){ S.view = t.dataset.go; S.overlay = null; render(); return; }
+  const a = t.dataset.act;
+  if(a === "login-note") toast("デモでは「はじめる」からどうぞ");
+  if(a === "make-passkey"){ S.regStep = 1; render(); }
+  if(a === "finish-signup"){ const n = $("#in-name"); S.name = (n && n.value.trim()) || "さとし"; if(!S.handle) S.handle = "satoshi"; S.view = "home"; render(); toast("ようこそ!"); }
+  if(a === "scan-demo"){ S.view = "confirm"; render(); }
+  if(a === "id-note") toast("ID接続は相手に承認リクエストが届きます(QRと違い即成立しません)");
+  if(a === "connect"){ S.conn = newConn(); replied = false; S.view = "chat"; S.overlay = "established"; render(); }
+  if(a === "start-chat" || a === "later"){ S.overlay = null; if(a === "later") S.view = "home"; render(); if(a==="start-chat"){ const i=$("#msg-in"); if(i) i.focus(); } }
+  if(a === "send") sendText();
+  if(a === "photo") sendPhoto();
+  if(a === "do-propose") propose();
+  if(a === "close-ovl"){ S.overlay = null; render(); }
+  if(a === "ch-continue") choose("continue");
+  if(a === "ch-end") choose("end");
+  if(a === "prop-perm"){ toast("恒久化を提案しました"); setTimeout(()=>{ makePermanent(); render(); }, 1500); }
+  if(a === "del-note") toast("自分側の履歴を完全削除します(相手側には影響しません)");
+});
+screenEl.addEventListener("keydown", e => {
+  if(e.key === "Enter" && e.target.id === "msg-in") sendText();
+});
+$("#b-day").addEventListener("click", () => advance(24));
+$("#b-near").addEventListener("click", () => jumpTo(24));
+$("#b-hit").addEventListener("click", () => jumpTo(0));
+$("#b-reset").addEventListener("click", init);
+$("#seg-partner").addEventListener("click", e => {
+  const b = e.target.closest("button[data-v]"); if(!b) return;
+  S.partnerChoice = b.dataset.v;
+  document.querySelectorAll("#seg-partner button").forEach(x => x.classList.toggle("on", x === b));
+  const c = S.conn;
+  if(c && !c.permanent && S.partnerChoice === "continue" && c.myChoice === "continue" && status(c) !== "expired"){
+    makePermanent(); render();
+  }
+});
+
+init();
+})();
+</script>
