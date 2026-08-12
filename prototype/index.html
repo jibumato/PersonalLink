@@ -71,7 +71,9 @@
   .field{width:100%; border:1.5px solid var(--a-line); border-radius:12px; padding:12px 14px; font-size:16px; font-family:inherit; background:#fff; color:var(--a-ink)}
   .field:focus{outline:none; border-color:var(--a-brand)}
   .hint{font-size:12.5px; color:var(--a-mut); margin-top:8px}
-  .ok{color:var(--a-green); font-weight:700; font-size:13px}
+  .hint.err{color:var(--a-red)}
+  .hint:empty{display:none}
+  .ok{color:var(--a-green); font-weight:700; font-size:13px; margin-top:8px}
 
   .card{background:#fff; border:1px solid var(--a-line); border-radius:14px; padding:16px}
   .card+.card{margin-top:12px}
@@ -347,23 +349,35 @@ function choose(v){
 
 /* messages */
 let replied = false;
+/* 送信時に画面全体を再描画すると入力欄が作り直され、変換中の文字とキーボードが失われる。
+   吹き出しだけを追加する。 */
+function appendMsg(m){
+  const l = $("#chatlist");
+  if(!l){ render(); return; }
+  l.insertAdjacentHTML("beforeend", msgHTML(m));
+  scrollChat();
+}
 function sendText(){
-  const inp = $("#msg-in"); if(!inp || !inp.value.trim()) return;
-  const c = S.conn;
-  c.msgs.push({k:"me", t:inp.value.trim()});
+  const inp = $("#msg-in"); if(!inp) return;
+  const t = inp.value.trim(); if(!t) return;
+  const c = S.conn, m = {k:"me", t};
+  c.msgs.push(m);
   inp.value = "";
-  render(); scrollChat();
-  const ni = $("#msg-in"); if(ni) ni.focus();
+  appendMsg(m);
+  inp.focus();
   if(!replied){
     replied = true;
-    setTimeout(()=>{ c.msgs.push({k:"them", t:"こちらこそ、今日はありがとうございました!また写真イベントの情報送りますね 😊"}); render(); scrollChat(); }, 1100);
+    setTimeout(()=>{
+      const r = {k:"them", t:"こちらこそ、今日はありがとうございました!また写真イベントの情報送りますね 😊"};
+      c.msgs.push(r); appendMsg(r);
+    }, 1100);
   }
 }
 function sendPhoto(){
   const c = S.conn;
   if(!c.level2){ S.overlay = "propose"; render(); return; }
-  c.msgs.push({k:"me", t:"", photo:true});
-  render(); scrollChat();
+  const m = {k:"me", t:"", photo:true};
+  c.msgs.push(m); appendMsg(m);
 }
 function propose(){
   const c = S.conn;
@@ -406,20 +420,46 @@ function vWelcome(){
   </div>`;
 }
 function vSignupId(){
-  const v = S.handle;
-  const okc = /^[a-z0-9_]{3,20}$/.test(v);
   return `${bar("Universal IDを決める")}
   <div class="body pad">
     <p style="margin:4px 0 16px; font-size:14px">あなたの公開IDです。あとから変更もできます(90日に1回)。</p>
     <div style="display:flex; align-items:center; gap:6px">
       <span style="font-size:20px; font-weight:700; color:var(--a-brand)">@</span>
-      <input class="field" id="in-handle" value="${esc(v)}" placeholder="satoshi" autocomplete="off">
+      <input class="field" id="in-handle" value="${esc(S.handle)}" placeholder="satoshi"
+             type="text" inputmode="latin" lang="en" autocomplete="off"
+             autocapitalize="none" autocorrect="off" spellcheck="false">
     </div>
     <p class="hint">3〜20文字 / 英小文字・数字・アンダースコア</p>
-    ${v ? (okc ? '<p class="ok">✓ このIDは利用できます</p>' : '<p class="hint" style="color:var(--a-red)">使える文字は英小文字・数字・_ です(3文字以上)</p>') : ""}
+    <p class="hint" id="handle-msg" aria-live="polite"></p>
     <p class="hint" style="margin-top:14px">💡 表示名(ニックネーム)は別に設定できます。IDに本名を使う必要はありません。</p>
-    <div style="margin-top:22px"><button class="btn pri" data-go="signup-passkey" ${okc?"":"disabled"}>次へ</button></div>
+    <div style="margin-top:22px"><button class="btn pri" id="b-id-next" data-go="signup-passkey" disabled>次へ</button></div>
   </div>`;
+}
+
+/* ID入力: 入力中は再描画せず、検証表示だけを差し替える(IME対応) */
+function checkHandle(v){
+  if(!v) return {ok:false, msg:"", cls:"hint"};
+  if(/[^\x20-\x7E]/.test(v)) return {ok:false, msg:"半角英数字で入力してください(日本語入力をオフに切り替えてください)", cls:"hint err"};
+  if(!/^[a-z0-9_]*$/.test(v)) return {ok:false, msg:"使える文字は英小文字・数字・_ です", cls:"hint err"};
+  if(v.length < 3) return {ok:false, msg:"あと" + (3 - v.length) + "文字入力してください", cls:"hint"};
+  if(v.length > 20) return {ok:false, msg:"20文字までです", cls:"hint err"};
+  return {ok:true, msg:"✓ このIDは利用できます", cls:"ok"};
+}
+function syncHandleUI(){
+  const el = $("#in-handle"), msg = $("#handle-msg"), btn = $("#b-id-next");
+  if(!el || !msg || !btn) return;
+  // 英大文字だけはその場で小文字化(長さが変わらないためカーソル位置を保てる)
+  const lower = el.value.replace(/[A-Z]/g, ch => ch.toLowerCase());
+  if(lower !== el.value){
+    const p = el.selectionStart;
+    el.value = lower;
+    try{ el.setSelectionRange(p, p); }catch(_){}
+  }
+  S.handle = el.value.trim();
+  const r = checkHandle(S.handle);
+  msg.textContent = r.msg;
+  msg.className = r.cls;
+  btn.disabled = !r.ok;
 }
 function vSignupPasskey(){
   const done = S.regStep >= 1;
@@ -530,18 +570,19 @@ function vConfirm(){
     </div>
   </div>`;
 }
+function msgHTML(m){
+  if(m.k === "sys") return `<div class="msg sys">${esc(m.t)}</div>`;
+  if(m.photo) return `<div class="msg me" style="padding:5px"><div class="photo">🏔️</div><span class="st">送信済み</span></div>`;
+  if(m.k === "me") return `<div class="msg me">${esc(m.t)}<span class="st">送信済み</span></div>`;
+  return `<div class="msg them">${esc(m.t)}</div>`;
+}
 function vChat(){
   const c = S.conn, st = status(c);
   const bdg = c.permanent ? '<span class="badge perm">♾ 恒久</span>'
     : st === "active" ? `<span class="badge time">⏳ ${fmtRemain(c)}</span>`
     : st === "grace" ? '<span class="badge time">⌛ 猶予中</span>'
     : '<span class="badge end">終了</span>';
-  const msgs = c.msgs.map(m=>{
-    if(m.k === "sys") return `<div class="msg sys">${esc(m.t)}</div>`;
-    if(m.photo) return `<div class="msg me" style="padding:5px"><div class="photo">🏔️</div><span class="st">送信済み</span></div>`;
-    if(m.k === "me") return `<div class="msg me">${esc(m.t)}<span class="st">送信済み</span></div>`;
-    return `<div class="msg them">${esc(m.t)}</div>`;
-  }).join("");
+  const msgs = c.msgs.map(msgHTML).join("");
   const expiring = st === "active" && remainH(c) <= 24 && !c.permanent;
   const banner = (expiring && c.myChoice === null) ?
     `<div class="banner"><span>⏳ この接続はあと${Math.ceil(remainH(c))}時間で期限になります</span><button data-go="renewal">継続確認へ</button></div>` :
@@ -667,7 +708,13 @@ function render(){
   const ck = $("#ck-saved");
   if(ck){ ck.addEventListener("change", e => { $("#b-pk-next").disabled = !e.target.checked; }); }
   const hi = $("#in-handle");
-  if(hi){ hi.addEventListener("input", e => { S.handle = e.target.value.trim().toLowerCase(); render(); const el=$("#in-handle"); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }); }
+  if(hi){
+    // 変換中(IME composition)は一切手を触れない。触ると変換状態が壊れる
+    hi.addEventListener("input", e => { if(!e.isComposing) syncHandleUI(); });
+    hi.addEventListener("compositionend", syncHandleUI);
+    hi.addEventListener("blur", syncHandleUI);
+    syncHandleUI();
+  }
   scrollChat();
 }
 function ovlEstablished(){
@@ -707,7 +754,8 @@ screenEl.addEventListener("click", e => {
   if(a === "del-note") toast("自分側の履歴を完全削除します(相手側には影響しません)");
 });
 screenEl.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.id === "msg-in") sendText();
+  // 変換確定のEnterで誤送信しない
+  if(e.key === "Enter" && !e.isComposing && e.target.id === "msg-in") sendText();
 });
 $("#b-day").addEventListener("click", () => advance(24));
 $("#b-near").addEventListener("click", () => jumpTo(24));

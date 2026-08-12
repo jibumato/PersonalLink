@@ -214,6 +214,7 @@ stateDiagram-v2
 **状態・エッジケース**
 - 予約語(`admin` 等)・不適切語はサーバー側で拒否
 - ID変更後、旧IDは90日間再取得不可(なりすまし防止)
+- **日本語入力(IME)対応(必須)**: 日本語キーボードのまま入力される前提で作る。①変換中(`compositionstart`〜`compositionend`)は入力欄のDOMを再生成しない・値を書き換えない — 変換状態が壊れて文字化けする。②全角文字が入った場合は「使えない文字です」ではなく「**半角英数字で入力してください(日本語入力をオフに切り替えてください)**」と原因と対処を示す。③`autocapitalize="none" autocorrect="off" spellcheck="false"` を指定。同様に、チャット入力の送信は変換確定のEnter(`isComposing === true`)で発火させない
 
 **計測**: `id_submitted`
 
