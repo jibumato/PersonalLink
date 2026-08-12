@@ -55,6 +55,7 @@
   .btn.pri{background:var(--a-brand); color:#fff}
   .btn.pri:disabled{background:#b9c9d2; cursor:default}
   .btn.sec{background:#fff; color:var(--a-brand); border:1.5px solid var(--a-brand)}
+  .btn.sec:disabled{border-color:var(--a-line); color:#b3c0c8; cursor:default}
   .btn.ghost{background:none; color:var(--a-mut); font-weight:500}
   .btn+.btn{margin-top:10px}
   .btn:focus-visible,.chip:focus-visible,button:focus-visible{outline:2px solid var(--a-brand); outline-offset:2px}
@@ -140,6 +141,8 @@
   .msg.me{align-self:flex-end; background:var(--a-brand); color:#fff; border-bottom-right-radius:4px}
   .msg.them{align-self:flex-start; background:#e9eef1; border-bottom-left-radius:4px}
   .msg.sys{align-self:center; background:none; color:var(--a-mut); font-size:12px; text-align:center; max-width:92%; padding:2px}
+  .msg[data-midx]{cursor:pointer}
+  .msg.retract{background:none; border:1.5px dashed #c0ccd3; color:#8a9aa4; font-size:12.5px}
   .msg .st{display:block; font-size:10px; opacity:.7; text-align:right; margin-top:2px}
   .photo{width:180px; height:120px; border-radius:12px; background:linear-gradient(135deg,#9fc3d4,#3f7d9b); display:flex; align-items:center; justify-content:center; font-size:44px}
   .banner{background:var(--a-amberbg); color:var(--a-amber); font-size:12.5px; padding:9px 14px; display:flex; gap:8px; align-items:center; justify-content:space-between; border-bottom:1px solid #f0dfc0; flex:none}
@@ -149,6 +152,8 @@
   .inputbar input:focus{outline:none; border-color:var(--a-brand)}
   .icnbtn{border:0; background:none; font-size:21px; cursor:pointer; position:relative; padding:4px; flex:none; font-family:inherit}
   .icnbtn .lk{position:absolute; right:-2px; bottom:-2px; font-size:11px}
+  .icnbtn.mute{font-size:17px; width:34px; height:34px; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center}
+  .icnbtn.mute.on{background:var(--a-amberbg)}
   .send{border:0; background:var(--a-brand); color:#fff; border-radius:999px; width:38px; height:38px; font-size:16px; cursor:pointer; flex:none}
   .endbar{padding:14px 16px; background:#eceff1; text-align:center; font-size:13px; color:var(--a-mut); flex:none}
   .endbar .btn{margin-top:10px}
@@ -273,6 +278,7 @@ function newConn(){
   return {
     elapsedH:0, permanent:false, level2:false, proposalPending:false,
     myChoice:null, partnerApplied:false, graceMsg:false, endMsg:false,
+    muteMode:false, muteToastShown:false,
     msgs:[ sys("田中さんとつながりました(期限: 7日間)") ]
   };
 }
@@ -354,13 +360,13 @@ let replied = false;
 function appendMsg(m){
   const l = $("#chatlist");
   if(!l){ render(); return; }
-  l.insertAdjacentHTML("beforeend", msgHTML(m));
+  l.insertAdjacentHTML("beforeend", msgHTML(m, S.conn.msgs.indexOf(m)));
   scrollChat();
 }
 function sendText(){
   const inp = $("#msg-in"); if(!inp) return;
   const t = inp.value.trim(); if(!t) return;
-  const c = S.conn, m = {k:"me", t};
+  const c = S.conn, m = {k:"me", t, at:c.elapsedH, muted:c.muteMode};
   c.msgs.push(m);
   inp.value = "";
   appendMsg(m);
@@ -368,7 +374,7 @@ function sendText(){
   if(!replied){
     replied = true;
     setTimeout(()=>{
-      const r = {k:"them", t:"こちらこそ、今日はありがとうございました!また写真イベントの情報送りますね 😊"};
+      const r = {k:"them", t:"こちらこそ、今日はありがとうございました!また写真イベントの情報送りますね 😊", at:c.elapsedH};
       c.msgs.push(r); appendMsg(r);
     }, 1100);
   }
@@ -376,8 +382,27 @@ function sendText(){
 function sendPhoto(){
   const c = S.conn;
   if(!c.level2){ S.overlay = "propose"; render(); return; }
-  const m = {k:"me", t:"", photo:true};
+  const m = {k:"me", t:"", photo:true, at:c.elapsedH, muted:c.muteMode};
   c.msgs.push(m); appendMsg(m);
+}
+
+/* 送信取り消し(24時間以内・相手の画面からも消える)/ 自分の画面から削除 */
+function canRetract(m){
+  const c = S.conn;
+  return m.k === "me" && !m.retracted && (c.elapsedH - (m.at ?? 0)) <= 24 && status(c) !== "expired";
+}
+function retractMsg(i){
+  const m = S.conn.msgs[i]; if(!m || !canRetract(m)) return;
+  m.retracted = true;
+  m.t = ""; delete m.photo; delete m.muted;   // 内容は物理削除(トゥームストーンのみ残す)
+  S.overlay = null; render();
+  toast("送信を取り消しました");
+}
+function deleteForMe(i){
+  const m = S.conn.msgs[i]; if(!m) return;
+  m.hiddenMe = true;
+  S.overlay = null; render();
+  toast("自分の画面から削除しました(相手側には残ります)");
 }
 function propose(){
   const c = S.conn;
@@ -570,11 +595,15 @@ function vConfirm(){
     </div>
   </div>`;
 }
-function msgHTML(m){
+function msgHTML(m, i){
+  if(m.hiddenMe) return "";
   if(m.k === "sys") return `<div class="msg sys">${esc(m.t)}</div>`;
-  if(m.photo) return `<div class="msg me" style="padding:5px"><div class="photo">🏔️</div><span class="st">送信済み</span></div>`;
-  if(m.k === "me") return `<div class="msg me">${esc(m.t)}<span class="st">送信済み</span></div>`;
-  return `<div class="msg them">${esc(m.t)}</div>`;
+  const dx = ` data-midx="${i}" role="button" tabindex="0"`;
+  if(m.retracted) return `<div class="msg ${m.k} retract"${dx}>送信を取り消しました</div>`;
+  const st = m.k === "me" ? `<span class="st">${m.muted ? "🌙 ミュートで送信済み" : "送信済み"}</span>` : "";
+  if(m.photo) return `<div class="msg me" style="padding:5px"${dx}><div class="photo">🏔️</div>${st}</div>`;
+  if(m.k === "me") return `<div class="msg me"${dx}>${esc(m.t)}${st}</div>`;
+  return `<div class="msg them"${dx}>${esc(m.t)}</div>`;
 }
 function vChat(){
   const c = S.conn, st = status(c);
@@ -592,7 +621,8 @@ function vChat(){
     bottom = `<div class="inputbar">
       <button class="icnbtn" data-act="photo" aria-label="写真を送る">📷${c.level2?"":'<span class="lk">🔒</span>'}</button>
       <button class="icnbtn" data-act="photo" aria-label="ファイルを送る">📎${c.level2?"":'<span class="lk">🔒</span>'}</button>
-      <input id="msg-in" placeholder="メッセージ" autocomplete="off">
+      <input id="msg-in" placeholder="${c.muteMode ? "🌙 ミュートで送信" : "メッセージ"}" autocomplete="off">
+      <button class="icnbtn mute ${c.muteMode?"on":""}" data-act="mute-toggle" aria-label="ミュート送信の切り替え" aria-pressed="${c.muteMode}">${c.muteMode?"🌙":"🔔"}</button>
       <button class="send" data-act="send" aria-label="送信">➤</button>
     </div>`;
   } else if(st === "grace"){
@@ -609,7 +639,25 @@ function vChat(){
   ${banner}
   <div class="chatlist" id="chatlist">${msgs}</div>
   ${bottom}
-  ${S.overlay === "propose" ? ovlPropose() : ""}`;
+  ${S.overlay === "propose" ? ovlPropose() : S.overlay === "msgmenu" ? ovlMsgMenu() : ""}`;
+}
+function ovlMsgMenu(){
+  const c = S.conn, m = c.msgs[S.msgIdx];
+  if(!m) return "";
+  const mine = m.k === "me";
+  const ok = canRetract(m);
+  return `<div class="amodal" data-act="close-ovl"><div class="sheet" data-stop="1">
+    <h3>メッセージ</h3>
+    <p>${m.retracted ? "取り消し済みのメッセージです" : mine ? "自分が送ったメッセージ" : "田中さんのメッセージ"}</p>
+    ${mine && !m.retracted ? `
+      <button class="btn sec" data-act="retract" ${ok?"":"disabled"}>送信取り消し</button>
+      <p class="hint" style="margin:6px 0 12px">${ok
+        ? "相手の画面からも消え、「送信を取り消しました」とだけ表示されます"
+        : (status(c) === "expired" ? "終了した接続では取り消せません" : "送信から24時間以内のみ取り消せます")}</p>` : ""}
+    <button class="btn sec" data-act="del-me">自分の画面から削除</button>
+    <p class="hint" style="margin:6px 0 0">相手の画面には残ります</p>
+    <button class="btn ghost" data-act="close-ovl" style="margin-top:12px">キャンセル</button>
+  </div></div>`;
 }
 function ovlPropose(){
   return `<div class="amodal" data-act="close-ovl"><div class="sheet" data-stop="1">
@@ -731,7 +779,11 @@ function ovlEstablished(){
 /* ---------- events ---------- */
 screenEl.addEventListener("click", e => {
   const t = e.target.closest("[data-go],[data-act],[data-tab],[data-exp],[data-stop]");
-  if(!t) return;
+  if(!t){
+    const mEl = e.target.closest(".msg[data-midx]");
+    if(mEl){ S.msgIdx = +mEl.dataset.midx; S.overlay = "msgmenu"; render(); }
+    return;
+  }
   if(t.dataset.stop){ e.stopPropagation(); if(!t.dataset.act && !t.dataset.go) return; }
   if(t.dataset.tab){ S.qrTab = t.dataset.tab; render(); return; }
   if(t.dataset.exp){ S.expiryDays = +t.dataset.exp; render(); return; }
@@ -747,6 +799,22 @@ screenEl.addEventListener("click", e => {
   if(a === "send") sendText();
   if(a === "photo") sendPhoto();
   if(a === "do-propose") propose();
+  if(a === "retract") retractMsg(S.msgIdx);
+  if(a === "del-me") deleteForMe(S.msgIdx);
+  if(a === "mute-toggle"){
+    // 再描画すると入力中の文字が消えるため、DOMだけ更新する
+    const c = S.conn; c.muteMode = !c.muteMode;
+    t.classList.toggle("on", c.muteMode);
+    t.textContent = c.muteMode ? "🌙" : "🔔";
+    t.setAttribute("aria-pressed", String(c.muteMode));
+    const mi = $("#msg-in"); if(mi) mi.placeholder = c.muteMode ? "🌙 ミュートで送信" : "メッセージ";
+    if(c.muteMode && !c.muteToastShown){
+      c.muteToastShown = true;
+      toast("🌙 通知を鳴らさずに送ります。夜間や、返信を急かしたくないときに");
+    } else {
+      toast(c.muteMode ? "ミュート送信 ON" : "ミュート送信 OFF");
+    }
+  }
   if(a === "close-ovl"){ S.overlay = null; render(); }
   if(a === "ch-continue") choose("continue");
   if(a === "ch-end") choose("end");
@@ -756,6 +824,10 @@ screenEl.addEventListener("click", e => {
 screenEl.addEventListener("keydown", e => {
   // 変換確定のEnterで誤送信しない
   if(e.key === "Enter" && !e.isComposing && e.target.id === "msg-in") sendText();
+  if((e.key === "Enter" || e.key === " ") && e.target.matches?.(".msg[data-midx]")){
+    e.preventDefault();
+    S.msgIdx = +e.target.dataset.midx; S.overlay = "msgmenu"; render();
+  }
 });
 $("#b-day").addEventListener("click", () => advance(24));
 $("#b-near").addEventListener("click", () => jumpTo(24));

@@ -161,7 +161,9 @@ Level 1(メッセージ)は成立時に暗黙付与のためレコード不要�
 | sender_id | uuid FK | |
 | kind | enum | `text` / `image` / `file` / `system` |
 | body | text NULL | E2EE移行時は暗号文カラムに置換予定(D-9)|
+| muted | boolean | ミュート送信(D-13)。**送信者にのみAPIで返し、受信側には配信しない**。通知抑止はサーバー側(Push未送信)で実施 |
 | created_at | timestamptz | |
+| retracted_at | timestamptz NULL | 送信取り消し(D-12)。取り消し時に body を NULL 化し attachments を**物理削除**。行はトゥームストーンとして保持 |
 | deleted_by | uuid[] | 自分側削除 |
 
 attachments: id / message_id / storage_key / mime / size / created_at。`image`/`file` の送信APIは **level_grants(level=2, revoked_at IS NULL) の存在を必ず検証**。
@@ -198,6 +200,8 @@ group_messages: messagesと同構造(レベル検証なし=D-11)。
 5. 相手のL4プロフィール参照可 ⟺ level 4 granted かつ未revoke
 6. grace中: 送信不可・閲覧可・renewal_choices受付可
 7. 同一ペアの生きたConnection(active/grace/permanent)は最大1つ
+8. 送信取り消し可 ⟺ 送信者本人 かつ `created_at` から24時間以内 かつ status ≠ expired。取り消し時に本文・添付を物理削除し、取り消しのプッシュ通知は送らない(D-12)
+9. `muted` は受信側クライアントに一切露出しない。取り消し済みメッセージの本文・添付は通報時の証跡(evidence)にも含まれない — 物理削除済みのため含めようがない、を保証する(D-12・D-13)
 
 ---
 
