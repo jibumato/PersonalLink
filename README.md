@@ -6,7 +6,9 @@
 
 ## 現在地
 
-**Phase 1(Web版MVP)— 仕様策定完了、実装着手前。**
+**Phase 1(Web版MVP)— 仕様策定完了、実装着手前。次は S0(技術選定・環境構築)。**
+
+進行管理は **[ROADMAP.md(プロジェクト進行表)](ROADMAP.md)** で行う(マイルストーンM0〜M9・スプリントS0〜S6・KPIゲート・リスク登録簿)。
 
 構想書の「次にやること」(コアループの画面設計)を完了し、MVP仕様書として確定済み。
 
@@ -18,6 +20,7 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 
 | ファイル | 内容 |
 |---|---|
+| [ROADMAP.md](ROADMAP.md) | **プロジェクト進行表**(マイルストーン・スプリント・KPIゲート・リスク。進行管理の単一文書) |
 | [docs/00-vision.md](docs/00-vision.md) | 構想書 v0.1(founding document・思想の原典) |
 | [docs/01-screen-design.md](docs/01-screen-design.md) | **画面設計書 = MVP仕様書 v0.1**。全20画面の仕様、Connection状態遷移、設計判断(D-1〜D-11)、KPI計測設計 |
 | [docs/02-data-model.md](docs/02-data-model.md) | データモデル v0.1。テーブル定義、不変条件、People OS憲法との対応表 |
@@ -48,8 +51,10 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 
 ## 次のアクション
 
-1. 技術選定(候補: Next.js + PostgreSQL + SSE/WS、WebAuthnはSimpleWebAuthn)
-2. スプリントS1(認証基盤: Universal ID + Passkey + セッション管理)から実装開始
-3. プロトタイプでのユーザーテスト(イベント参加経験者5名)
+**[ROADMAP.md](ROADMAP.md) の S0(技術選定・環境構築)から。**
 
-ロードマップ全体は構想書 §17、スプリント分割案は画面設計書 §8 を参照。
+1. S0: 技術選定メモ + WebAuthn実機スパイク(最重要リスクの先行検証)+ CI/デプロイ環境
+2. S1〜S6: 認証 → QR接続 → チャット → 期限エンジン → レベル・安全 → グループ・計測(各2週間)
+3. 並走: プロトタイプのユーザーテスト(イベント参加経験者5名)
+
+長期ロードマップは構想書 §17、進行表は ROADMAP.md を参照。
