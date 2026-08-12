@@ -12,7 +12,8 @@ const handle = (p: string) => `${p}_${Math.random().toString(36).slice(2, 8)}`;
 async function signup(page: Page, id: string, name: string) {
   await page.goto("/signup/id");
   await page.getByPlaceholder("satoshi").fill(id);
-  await expect(page.getByText("✓ このIDは利用できます")).toBeVisible();
+  // 300msのデバウンス + DB往復。並列実行下では既定の5秒に収まらないことがある
+  await expect(page.getByText("✓ このIDは利用できます")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "次へ" }).click();
   await page.getByLabel("表示名(本名でなくてOK)").fill(name);
   await page.getByRole("button", { name: "はじめる" }).click();
@@ -59,7 +60,8 @@ test("QR表示 → 読み取り → 接続確認 → 成立 まで通る", async
   // B-5: 成立の演出
   await expect(guest.page).toHaveURL(/established=/);
   await expect(guest.page.getByText("ホストさん とつながりました")).toBeVisible();
-  await guest.page.getByRole("button", { name: "OK" }).click();
+  // S3 でボタンが「メッセージを送る / あとで」に変わった
+  await guest.page.getByRole("button", { name: "あとで" }).click();
   await expect(guest.page.getByRole("dialog")).toBeHidden();
 
   // B-1: 一覧に出て、期限バッジが付く

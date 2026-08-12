@@ -6,6 +6,7 @@
  *
  * S1: users / sessions / profiles / handle_reservations
  * S2: qr_tokens / connections / connection_members
+ * S3: messages
  */
 import { sql } from "drizzle-orm";
 import {
@@ -14,6 +15,7 @@ import {
   uuid,
   text,
   integer,
+  boolean,
   timestamp,
   jsonb,
   index,
@@ -219,6 +221,13 @@ export const connectionMembers = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     /** 自分side の履歴削除。相手側には影響しない(憲法第六条)。 */
     hiddenAt: timestamp("hidden_at", { withTimezone: true }),
+    /**
+     * 自分が最後に開いた時刻。B-1 の未読バッジに使う。
+     *
+     * ⚠️ **相手には絶対に返さない。** これは既読情報そのもので、
+     * 漏らすと D-8「既読表示はしない」が壊れる。
+     */
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }),
   },
   (t) => [
     primaryKey({ columns: [t.connectionId, t.userId] }),
@@ -233,3 +242,60 @@ export function pairKeyOf(a: string, b: string): string {
 
 export type QrToken = typeof qrTokens.$inferSelect;
 export type Connection = typeof connections.$inferSelect;
+
+// ============================================================
+// S3: チャット
+// ============================================================
+
+/** 送信取り消しができる時間(D-12)。 */
+export const RETRACT_WINDOW_HOURS = 24;
+
+export const messageKind = pgEnum("message_kind", ["text", "image", "file", "system"]);
+
+/**
+ * メッセージ。
+ *
+ * **既読情報を持たない**(D-8)。相手が読んだかどうかを保存する場所そのものを作らない。
+ *
+ * 取り消し(D-12)はフラグではなく**本文の物理削除**。行はトゥームストーンとして残す。
+ * 「消したつもりで残っていた」を防ぐため、`retracted_at` が入っていれば
+ * `body` が NULL であることを **CHECK制約**で強制する。
+ */
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    /** システムメッセージは送信者を持たない。 */
+    senderId: uuid("sender_id").references(() => users.id, { onDelete: "cascade" }),
+    kind: messageKind("kind").notNull().default("text"),
+    /** E2EE移行時は暗号文カラムに置換予定(D-9)。 */
+    body: text("body"),
+    /**
+     * ミュート送信(D-13)。**送信者にしか返さない**。
+     * 通知の抑止はサーバー側で行い、受信クライアントにこの値は配信しない。
+     */
+    muted: boolean("muted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** 取り消し時刻。埋まっていれば本文・添付は削除済み。 */
+    retractedAt: timestamp("retracted_at", { withTimezone: true }),
+    /** 「自分の画面から削除」した人。相手の画面には残る。 */
+    deletedBy: uuid("deleted_by").array().notNull().default([]),
+  },
+  (t) => [
+    index("messages_connection_idx").on(t.connectionId, t.createdAt),
+    // 取り消し済みなら本文は残っていない(D-12: フラグ削除ではなく物理削除)
+    check("messages_retracted_has_no_body", sql`${t.retractedAt} is null or ${t.body} is null`),
+    // システムメッセージに送信者はいない / 通常メッセージには必ず送信者がいる
+    check(
+      "messages_system_has_no_sender",
+      sql`(${t.kind} = 'system') = (${t.senderId} is null)`,
+    ),
+    // システムメッセージはミュートの概念を持たない
+    check("messages_system_not_muted", sql`${t.kind} <> 'system' or ${t.muted} = false`),
+  ],
+);
+
+export type Message = typeof messages.$inferSelect;

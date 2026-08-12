@@ -8,6 +8,7 @@ import {
   splitByUrgency,
   type ConnectionListItem,
 } from "@/lib/connection";
+import { unreadCounts } from "@/lib/message";
 import { logout } from "@/app/actions/auth";
 import { Established } from "./established";
 
@@ -22,10 +23,14 @@ export default async function HomePage({
   if (!user.displayName) redirect("/signup/profile");
 
   const { established, already } = await searchParams;
-  const items = await listConnections(user.userId);
+  const [items, unread] = await Promise.all([
+    listConnections(user.userId),
+    unreadCounts(user.userId),
+  ]);
   const justConnected = established ? items.find((i) => i.id === established) : undefined;
 
   const { expiring, rest } = splitByUrgency(items);
+  const rows = (list: ConnectionListItem[]) => <ConnectionRows items={list} unread={unread} />;
 
   return (
     <main className="shell">
@@ -53,13 +58,13 @@ export default async function HomePage({
           {expiring.length > 0 && (
             <section className="panel">
               <p className="eyebrow">まもなく期限</p>
-              <ConnectionRows items={expiring} />
+              {rows(expiring)}
             </section>
           )}
           {rest.length > 0 && (
             <section className="panel">
               <p className="eyebrow">つながり中</p>
-              <ConnectionRows items={rest} />
+              {rows(rest)}
             </section>
           )}
         </>
@@ -78,26 +83,40 @@ export default async function HomePage({
         <Established
           name={justConnected.partner.displayName ?? `@${justConnected.partner.handle}`}
           days={remainingDays(justConnected.expiresAt)}
+          connectionId={justConnected.id}
         />
       )}
     </main>
   );
 }
 
-function ConnectionRows({ items }: { items: ConnectionListItem[] }) {
+function ConnectionRows({
+  items,
+  unread,
+}: {
+  items: ConnectionListItem[];
+  unread: Map<string, number>;
+}) {
   return (
     <ul className="rows">
-      {items.map((c) => (
-        <li key={c.id}>
-          <span className="grow">
-            <span className="name">{c.partner.displayName ?? `@${c.partner.handle}`}</span>
-            <span className="sub mono">@{c.partner.handle}</span>
-          </span>
-          <span className={`badge${c.expiresAt ? " badge-warn" : ""}`}>
-            {remainingLabel(c.expiresAt)}
-          </span>
-        </li>
-      ))}
+      {items.map((c) => {
+        const n = unread.get(c.id) ?? 0;
+        return (
+          <li key={c.id}>
+            <Link href={`/c/${c.id}`} className="rowlink">
+              <span className="grow">
+                <span className="name">{c.partner.displayName ?? `@${c.partner.handle}`}</span>
+                <span className="sub mono">@{c.partner.handle}</span>
+              </span>
+              {/* 未読は自分の情報。相手には見せない(D-8) */}
+              {n > 0 && <span className="badge unread">{n}</span>}
+              <span className={`badge${c.expiresAt ? " badge-warn" : ""}`}>
+                {remainingLabel(c.expiresAt)}
+              </span>
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 }

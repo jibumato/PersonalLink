@@ -52,6 +52,9 @@ export async function establishConnection(
       { connectionId: conn.id, userId: a },
       { connectionId: conn.id, userId: b },
     ]);
+    // 関係のできごとをタイムラインに刻む(C-1 のシステムメッセージ)
+    const { postSystemMessage } = await import("./message");
+    await postSystemMessage(conn.id, `つながりました(期限: ${expiryDays}日間)`);
     return { ok: true, connectionId: conn.id, expiresAt };
   } catch {
     // 部分UNIQUE(不変条件7)が競合を弾いた場合。既存を返して二重成立を避ける。

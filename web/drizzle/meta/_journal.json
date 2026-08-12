@@ -15,6 +15,13 @@
       "when": 1786552406678,
       "tag": "0001_s2_qr_connections",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786557087499,
+      "tag": "0002_s3_messages",
+      "breakpoints": true
     }
   ]
 }

@@ -148,6 +148,7 @@ QRペイロード = `token_id + サーバー署名(HMAC)`。読み取り側API�
 | connection_id | uuid FK | |
 | user_id | uuid FK | |
 | hidden_at | timestamptz NULL | 自分側の履歴削除(相手側には影響しない)|
+| **last_read_at** | timestamptz NULL | **S3で追加**。B-1の未読バッジ用。⚠️ **相手には絶対に返さない** — これは既読情報そのもので、漏らすと D-8 が壊れる |
 
 (connection_id, user_id) UNIQUE。1つのConnectionに必ず2行。同一ペアの `active/grace/permanent` なConnectionは同時に1つまで(部分UNIQUE制約)。expired後の再接続は新規行。
 
@@ -195,7 +196,18 @@ Level 1(メッセージ)は成立時に暗黙付与のためレコード不要�
 | muted | boolean | ミュート送信(D-13)。**送信者にのみAPIで返し、受信側には配信しない**。通知抑止はサーバー側(Push未送信)で実施 |
 | created_at | timestamptz | |
 | retracted_at | timestamptz NULL | 送信取り消し(D-12)。取り消し時に body を NULL 化し attachments を**物理削除**。行はトゥームストーンとして保持 |
-| deleted_by | uuid[] | 自分側削除 |
+| deleted_by | uuid[] | 自分側削除。相手の画面には残る |
+
+**S3の実装**: 以下を **CHECK制約**でDBに刻んだ。アプリが消し忘れても、DBが書き込みを拒否する。
+
+| 制約 | 守るもの |
+|---|---|
+| `retracted_at is null or body is null` | **取り消し済みなら本文は残っていない**(D-12: フラグ削除ではなく物理削除) |
+| `(kind = 'system') = (sender_id is null)` | システムメッセージに送信者はいない / 通常メッセージには必ずいる |
+| `kind <> 'system' or muted = false` | システムメッセージはミュートになりえない |
+
+**既読カラムは存在しない**(D-8)。相手が読んだかを保存する場所そのものを作っていない。
+未読バッジ用の `connection_members.last_read_at` は**自分側の情報**で、APIから相手に返さない。
 
 attachments: id / message_id / storage_key / mime / size / created_at。`image`/`file` の送信APIは **level_grants(level=2, revoked_at IS NULL) の存在を必ず検証**。
 

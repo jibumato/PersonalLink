@@ -592,3 +592,247 @@ a {
     }
   }
 }
+
+/* ============================================================
+   S3: チャット
+   ============================================================ */
+
+.chatshell {
+  padding-bottom: 0;
+  gap: 0.7rem;
+}
+
+.chathead {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: none;
+}
+
+/* 名前と @ID を縦に積む(横に並ぶと詰まって読めない) */
+.chathead .grow {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chathead .sub {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.chathead .back {
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 0 0.3rem 0 0;
+}
+
+.chatlist {
+  flex: 1;
+  min-height: 12rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.3rem 0.1rem;
+  scrollbar-width: none;
+}
+
+.chatlist::-webkit-scrollbar {
+  display: none;
+}
+
+.chatempty {
+  margin: auto;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.msg {
+  max-width: 78%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 3px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  word-break: break-word;
+  text-align: left;
+  font-family: inherit;
+  border: 0;
+}
+
+.msg.me {
+  align-self: flex-end;
+  background: rgba(8, 145, 178, 0.13);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px rgba(8, 145, 178, 0.35);
+  border-bottom-right-radius: 0;
+  cursor: pointer;
+}
+
+.msg.them {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px rgba(18, 38, 46, 0.12);
+  border-bottom-left-radius: 0;
+}
+
+.msg.sys {
+  align-self: center;
+  max-width: 92%;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-align: center;
+  padding: 0.2rem;
+}
+
+.msg.retracted {
+  background: none;
+  box-shadow: none;
+  border: 1px dashed rgba(91, 122, 132, 0.5);
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: default;
+}
+
+.msg .body {
+  display: block;
+  white-space: pre-wrap;
+}
+
+.msg .st {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-align: right;
+  color: var(--muted);
+}
+
+.chaterror {
+  flex: none;
+  margin: 0;
+}
+
+.inputbar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.1rem 1rem;
+  background: linear-gradient(180deg, transparent, var(--bg) 35%);
+  flex: none;
+}
+
+.chatinput {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.6rem 0.9rem;
+  /* 16px 未満だと iOS がフォーカス時に拡大する */
+  font-size: 16px;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--fg);
+}
+
+.chatinput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(8, 145, 178, 0.3);
+}
+
+/* C-4 ミュート送信トグル */
+.mutetoggle {
+  flex: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 1rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.mutetoggle.on {
+  background: var(--warn-bg);
+  border-color: rgba(180, 145, 10, 0.5);
+}
+
+.send {
+  flex: none;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(8, 145, 178, 0.18);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px rgba(8, 145, 178, 0.55);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.endbar {
+  flex: none;
+  margin-bottom: 1rem;
+  padding: 0.8rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: rgba(240, 246, 248, 0.75);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+}
+
+/* C-3 操作シート */
+.amodal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(18, 45, 56, 0.32);
+}
+
+.amodal .sheet {
+  width: 100%;
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 1.2rem 1.1rem 1.6rem;
+  border-radius: 6px 6px 0 0;
+  border-top: 1px solid rgba(8, 145, 178, 0.4);
+  background: rgba(255, 255, 255, calc(var(--glass) + 0.28));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.amodal h3 {
+  margin: 0 0 0.8rem;
+  font-size: 0.95rem;
+}
+
+/* ホームの行をリンクにする */
+.rowlink {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.badge.unread {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}

@@ -7,6 +7,11 @@ export default defineConfig({
   // tests/unit は Vitest の担当。Playwright は *.spec.ts だけを見る
   testMatch: "**/*.spec.ts",
   fullyParallel: true,
+  /**
+   * PGlite は1プロセス内の単一WASMインスタンスなので、並列に叩くと飽和して
+   * 無関係な待ちがタイムアウトする。実 PostgreSQL を使うときは並列に戻す。
+   */
+  workers: process.env.DATABASE_URL ? undefined : 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["list"]] : "list",
