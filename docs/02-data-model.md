@@ -1,8 +1,8 @@
 # PersonalLink データモデル設計
 
-**Version 0.2 / 2026年8月**(S1前半の実装に合わせて更新)
+**Version 0.3 / 2026年8月**(S4 期限エンジンの実装に合わせて更新)
 
-> 実装は [web/src/db/schema.ts](../web/src/db/schema.ts)。S1で追加した点は各節に「S1で追加」と明記した。
+> 実装は [web/src/db/schema.ts](../web/src/db/schema.ts)。各スプリントで追加した点は「Sxで追加」と明記した。
 
 [画面設計書(01-screen-design.md)](./01-screen-design.md) の仕様を支えるデータモデル。Phase 1(Web版MVP)対象。RDB(PostgreSQL想定)。
 
@@ -147,7 +147,7 @@ QRペイロード = `token_id + サーバー署名(HMAC)`。読み取り側API�
 |---|---|---|
 | connection_id | uuid FK | |
 | user_id | uuid FK | |
-| hidden_at | timestamptz NULL | 自分側の履歴削除(相手側には影響しない)|
+| hidden_at | timestamptz NULL | 自分側の履歴削除(相手側には影響しない)。**S4で実装** — 終了した接続でのみ設定でき、同時に自分を全メッセージの `deleted_by` に入れる(憲法第六条) |
 | **last_read_at** | timestamptz NULL | **S3で追加**。B-1の未読バッジ用。⚠️ **相手には絶対に返さない** — これは既読情報そのもので、漏らすと D-8 が壊れる |
 
 (connection_id, user_id) UNIQUE。1つのConnectionに必ず2行。同一ペアの `active/grace/permanent` なConnectionは同時に1つまで(部分UNIQUE制約)。expired後の再接続は新規行。
@@ -173,16 +173,27 @@ Level 1(メッセージ)は成立時に暗黙付与のためレコード不要�
 | proposed_at | timestamptz | 再提案は72hに1回(アプリ層で制御)|
 | accepted_at | timestamptz NULL | 承諾で level_grants 作成。「今はしない」はレコード変更なし(拒否状態を持たない=D-5)|
 
-### renewal_choices(継続選択)
+### renewal_choices(継続選択)— **S4で実装**
 
 | カラム | 型 | 備考 |
 |---|---|---|
-| connection_id | uuid FK | |
-| user_id | uuid FK | |
+| connection_id | uuid FK | PK(connection_id, user_id)。ON DELETE CASCADE |
+| user_id | uuid FK | 同上。1人1票で、あとから変更できる(upsert) |
 | choice | enum | `continue` / `end` |
 | chosen_at | timestamptz | |
 
-**不変条件(D-3)**: `end` はいかなるAPIレスポンスにも相手側に返さない。双方 `continue` がそろった時のみ即時 `permanent` 化。`end` があっても終了処理は自然な `expires_at` まで実行しない。
+**不変条件(D-3 / D-16)**: `end` はいかなるAPIレスポンスにも相手側に返さない。
+双方 `continue` がそろった時のみ即時 `permanent` 化。
+
+⚠️ **`end` を選んでも終了は早まらない。** 終了は選択によらず**常に猶予終了時**。
+早く終わると「猶予が無かった」という事実から拒否が推測できてしまうため
+([D-16](01-screen-design.md))。終了ジョブは `renewal_choices` を**一切参照しない**
+構造にして、参照しようがない形で守っている。
+
+**S4の実装**: 状態の唯一の正は保存された `status` カラムではなく
+[deriveStatus()](../web/src/lib/renewal.ts) による**導出**。
+`status` は「ジョブが最後に書いた値」でしかなく、画面・API・ジョブはすべて導出を通す。
+これで Cron が遅れてもユーザーには正しい状態が見える(T-8)。
 
 ### messages / attachments
 
@@ -239,7 +250,7 @@ group_messages: messagesと同構造(レベル検証なし=D-11)。
 1. メッセージ送信可 ⟺ connection.status ∈ {active, permanent} かつ 送信者が非ブロック対象
 2. 画像・ファイル送信可 ⟺ 上記 + level 2 が granted かつ未revoke(1対1のみ。グループは対象外)
 3. `expires_at = NULL` ⟺ status = permanent
-4. `renewal_choices.choice = 'end'` は相手に一切露出しない(APIレベルで保証)
+4. `renewal_choices.choice = 'end'` は相手に一切露出しない(APIレベルで保証)。**かつ終了タイミングを変えない** — 終了は選択によらず常に猶予終了時(D-16)
 5. 相手のL4プロフィール参照可 ⟺ level 4 granted かつ未revoke
 6. grace中: 送信不可・閲覧可・renewal_choices受付可
 7. 同一ペアの生きたConnection(active/grace/permanent)は最大1つ

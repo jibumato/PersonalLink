@@ -7,6 +7,7 @@
  * S1: users / sessions / profiles / handle_reservations
  * S2: qr_tokens / connections / connection_members
  * S3: messages
+ * S4: renewal_choices
  */
 import { sql } from "drizzle-orm";
 import {
@@ -299,3 +300,35 @@ export const messages = pgTable(
 );
 
 export type Message = typeof messages.$inferSelect;
+
+// ============================================================
+// S4: 期限エンジン
+// ============================================================
+
+export const renewalChoice = pgEnum("renewal_choice", ["continue", "end"]);
+
+/**
+ * 継続確認の選択(D-2 / 仕様書 §3 の評価マトリクス)。
+ *
+ * ⚠️ **`end` は相手に一切露出させない**(不変条件4 / D-3)。
+ * 通知しないだけでなく、**終了タイミングも選択によらず常に同じ**にする(D-16)。
+ * 早く終わると「継続しないを選ばれた」と推測できてしまうため。
+ *
+ * 選択はあとから変えられる(気が変わることはある)。変更も相手には通知しない。
+ */
+export const renewalChoices = pgTable(
+  "renewal_choices",
+  {
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    choice: renewalChoice("choice").notNull(),
+    chosenAt: timestamp("chosen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.connectionId, t.userId] })],
+);
+
+export type RenewalChoice = typeof renewalChoices.$inferSelect;

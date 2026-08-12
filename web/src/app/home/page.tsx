@@ -16,20 +16,25 @@ import { Established } from "./established";
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ established?: string; already?: string }>;
+  searchParams: Promise<{ established?: string; already?: string; tab?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/welcome");
   if (!user.displayName) redirect("/signup/profile");
 
-  const { established, already } = await searchParams;
+  const { established, already, tab } = await searchParams;
   const [items, unread] = await Promise.all([
     listConnections(user.userId),
     unreadCounts(user.userId),
   ]);
   const justConnected = established ? items.find((i) => i.id === established) : undefined;
 
-  const { expiring, rest } = splitByUrgency(items);
+  // 終了済みは別タブへ(B-1)。生きている接続に混ぜると、終わったものが
+  // 「まもなく期限」に居座り続けて一覧が読めなくなる
+  const ended = items.filter((i) => i.status === "expired");
+  const alive = items.filter((i) => i.status !== "expired");
+  const showEnded = tab === "ended";
+  const { expiring, rest } = splitByUrgency(alive);
   const rows = (list: ConnectionListItem[]) => <ConnectionRows items={list} unread={unread} />;
 
   return (
@@ -44,13 +49,44 @@ export default async function HomePage({
 
       {already && <p className="notice">すでにつながっています。</p>}
 
-      {items.length === 0 ? (
+      {ended.length > 0 && (
+        <nav className="tabs" aria-label="Connectionの表示切り替え">
+          <Link href="/home" className={`tab${showEnded ? "" : " on"}`} aria-current={!showEnded}>
+            つながり中
+          </Link>
+          <Link
+            href="/home?tab=ended"
+            className={`tab${showEnded ? " on" : ""}`}
+            aria-current={showEnded}
+          >
+            終了済み({ended.length})
+          </Link>
+        </nav>
+      )}
+
+      {showEnded ? (
+        <section className="panel">
+          <p className="eyebrow">終了済み</p>
+          <p className="hint">閲覧のみ。開いて履歴を削除できます。</p>
+          {rows(ended)}
+        </section>
+      ) : alive.length === 0 ? (
         <div className="panel" style={{ textAlign: "center" }}>
           <h2>Connection</h2>
           <p className="lede">
-            まだConnectionがありません。
-            <br />
-            イベントで会った人にQRを見せてみましょう。
+            {ended.length > 0 ? (
+              <>
+                つながり中のConnectionはありません。
+                <br />
+                また会った人にQRを見せてみましょう。
+              </>
+            ) : (
+              <>
+                まだConnectionがありません。
+                <br />
+                イベントで会った人にQRを見せてみましょう。
+              </>
+            )}
           </p>
         </div>
       ) : (
@@ -90,6 +126,12 @@ export default async function HomePage({
   );
 }
 
+/** 終了済みは落ち着いた色に。生きている期限だけを警告色で見せる */
+function badgeTone(c: ConnectionListItem): string {
+  if (c.status === "expired") return " badge-done";
+  return c.expiresAt ? " badge-warn" : "";
+}
+
 function ConnectionRows({
   items,
   unread,
@@ -110,9 +152,7 @@ function ConnectionRows({
               </span>
               {/* 未読は自分の情報。相手には見せない(D-8) */}
               {n > 0 && <span className="badge unread">{n}</span>}
-              <span className={`badge${c.expiresAt ? " badge-warn" : ""}`}>
-                {remainingLabel(c.expiresAt)}
-              </span>
+              <span className={`badge${badgeTone(c)}`}>{remainingLabel(c.expiresAt)}</span>
             </Link>
           </li>
         );

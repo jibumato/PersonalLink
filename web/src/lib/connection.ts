@@ -17,6 +17,7 @@ import {
   users,
   GRACE_HOURS,
 } from "@/db/schema";
+import { deriveStatus, type ConnectionStatus } from "./renewal";
 
 export type EstablishResult =
   | { ok: true; connectionId: string; expiresAt: Date }
@@ -76,13 +77,16 @@ export async function findAliveConnection(a: string, b: string) {
 
 export type ConnectionListItem = {
   id: string;
-  status: "active" | "grace" | "permanent" | "expired";
+  status: ConnectionStatus;
   expiresAt: Date | null;
   establishedAt: Date;
   partner: { handle: string; displayName: string | null; bio: string | null };
 };
 
-/** ホーム(B-1)に出す Connection 一覧。自分が隠したものは除く。 */
+/**
+ * ホーム(B-1)に出す Connection 一覧。自分が隠したものは除く。
+ * 状態は導出値。保存された status がズレていても、表示は常に正しい(T-8)。
+ */
 export async function listConnections(userId: string): Promise<ConnectionListItem[]> {
   const db = await getDb();
   // 同じテーブルを2回結合するので、相手側には別名を付ける
@@ -94,6 +98,7 @@ export async function listConnections(userId: string): Promise<ConnectionListIte
       id: connections.id,
       status: connections.status,
       expiresAt: connections.expiresAt,
+      graceUntil: connections.graceUntil,
       establishedAt: connections.establishedAt,
       handle: users.handle,
       displayName: profiles.displayName,
@@ -117,9 +122,10 @@ export async function listConnections(userId: string): Promise<ConnectionListIte
     .leftJoin(profiles, eq(profiles.userId, partner.userId))
     .orderBy(desc(connections.establishedAt));
 
+  // 保存された status ではなく導出を使う(T-8)
   return rows.map((r) => ({
     id: r.id,
-    status: r.status,
+    status: deriveStatus(r),
     expiresAt: r.expiresAt,
     establishedAt: r.establishedAt,
     partner: { handle: r.handle, displayName: r.displayName, bio: r.bio },

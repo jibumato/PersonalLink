@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { MessageView } from "@/lib/message";
-import { hideForMe, poll, reload, retract, send } from "@/app/actions/chat";
+import { deleteHistory, hideForMe, poll, reload, retract, send } from "@/app/actions/chat";
 import { MessageSheet } from "./message-sheet";
 
 const POLL_INTERVAL_MS = 3000;
@@ -25,10 +26,12 @@ export function Chat({
   canSend: boolean;
   status: "active" | "grace" | "permanent" | "expired";
 }) {
+  const router = useRouter();
   const [items, setItems] = useState<MessageView[]>(initial);
   const [muted, setMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sheetFor, setSheetFor] = useState<MessageView | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const composing = useRef(false);
@@ -109,6 +112,17 @@ export function Chat({
     setItems(await reload(connectionId));
   }
 
+  /** D-3 履歴削除。消したあとは開けなくなるので、ホームへ戻す */
+  async function onDeleteHistory() {
+    setConfirmDelete(false);
+    const r = await deleteHistory(connectionId);
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    router.replace("/home");
+  }
+
   return (
     <>
       <div className="chatlist" ref={listRef}>
@@ -158,11 +172,49 @@ export function Chat({
             ➤
           </button>
         </div>
+      ) : status === "grace" ? (
+        <div className="endbar">期限が終了したため、メッセージは送れません(閲覧はできます)</div>
       ) : (
+        // D-3 終了状態。入力バーの代わりに履歴削除を置く(憲法第六条)
         <div className="endbar">
-          {status === "grace"
-            ? "期限が終了したため、メッセージは送れません(閲覧はできます)"
-            : "この接続は終了しています"}
+          <span>この接続は終了しています</span>
+          <button type="button" className="linkbtn" onClick={() => setConfirmDelete(true)}>
+            履歴を削除
+          </button>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="amodal" onClick={() => setConfirmDelete(false)}>
+          <div
+            className="sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="履歴の削除"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>履歴を削除しますか?</h3>
+            <div className="stack">
+              <p className="hint">
+                この会話があなたの側から完全に消えます。<strong>元に戻せません。</strong>
+                相手の履歴には影響しません(憲法第六条)。
+              </p>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => void onDeleteHistory()}
+              >
+                履歴を削除する
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setConfirmDelete(false)}
+              >
+                やめる
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

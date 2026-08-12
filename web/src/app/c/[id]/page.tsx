@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { listMessages, loadChatContext, markRead } from "@/lib/message";
 import { remainingLabel } from "@/lib/connection";
+import { reconcileStatus } from "@/lib/renewal";
 import { Chat } from "./chat";
 
 /** C-1 チャット(1対1)。 */
@@ -11,6 +12,8 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   if (!user) redirect("/welcome");
 
   const { id } = await params;
+  // 読み取り時の遅延評価(T-8)。Cronが遅れていても、開いた時点で正しい状態にする
+  await reconcileStatus(id);
   const ctx = await loadChatContext(user.userId, id);
   if (!ctx) notFound();
 
@@ -29,10 +32,26 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
           <span className="sub mono">@{ctx.partner.handle}</span>
         </span>
         {/* 期限は常に見えるところに置く(D-1) */}
-        <span className={`badge${ctx.expiresAt ? " badge-warn" : ""}`}>
+        <span
+          className={`badge${
+            ctx.status === "expired" ? " badge-done" : ctx.expiresAt ? " badge-warn" : ""
+          }`}
+        >
           {remainingLabel(ctx.expiresAt)}
         </span>
       </header>
+
+      {/* D-1 期限接近バナー。継続確認への導線を切らさない */}
+      {(ctx.expiring || ctx.status === "grace") && (
+        <div className="banner">
+          <span>
+            {ctx.status === "grace"
+              ? "⌛ 期限が終了しました。猶予のあいだなら継続できます"
+              : "⏳ まもなく期限です"}
+          </span>
+          <Link href={`/c/${id}/renewal`}>継続確認へ</Link>
+        </div>
+      )}
 
       <Chat
         connectionId={id}

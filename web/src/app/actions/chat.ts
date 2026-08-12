@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import {
+  deleteHistoryForMe,
   hideMessageForMe,
   listMessages,
   markRead,
@@ -52,6 +53,14 @@ export async function hideForMe(messageId: string) {
   const user = await requireUser();
   await hideMessageForMe(user.userId, messageId);
   return { ok: true as const };
+}
+
+/** D-3 終了した接続の履歴を自分側から消す(憲法第六条)。相手側には残る。 */
+export async function deleteHistory(connectionId: string) {
+  const user = await requireUser();
+  const result = await deleteHistoryForMe(user.userId, connectionId);
+  if (result.ok) revalidatePath("/home");
+  return result;
 }
 
 /** 会話を開いたことを記録する。未読バッジ用で、相手には見せない(D-8)。 */

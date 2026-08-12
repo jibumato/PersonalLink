@@ -22,6 +22,13 @@ import {
   users,
   RETRACT_WINDOW_HOURS,
 } from "@/db/schema";
+import {
+  canChooseRenewal,
+  deriveStatus,
+  isExpiring,
+  type ConnectionStatus,
+} from "./renewal";
+import { track } from "./analytics";
 
 /**
  * クライアントへ返すメッセージ。
@@ -45,11 +52,17 @@ export type MessageView = {
 
 export type ChatContext = {
   connectionId: string;
-  status: "active" | "grace" | "permanent" | "expired";
+  status: ConnectionStatus;
   expiresAt: Date | null;
+  graceUntil: Date | null;
+  establishedAt: Date;
   partner: { handle: string; displayName: string | null };
   /** メッセージを送れる状態か(不変条件1) */
   canSend: boolean;
+  /** 期限接近。D-1 のバナーを出すか */
+  expiring: boolean;
+  /** 継続確認(D-2)を受け付ける期間か */
+  canChooseRenewal: boolean;
 };
 
 /** 自分がそのConnectionの参加者かを確かめ、相手の情報とあわせて返す。 */
@@ -65,6 +78,8 @@ export async function loadChatContext(
       id: connections.id,
       status: connections.status,
       expiresAt: connections.expiresAt,
+      graceUntil: connections.graceUntil,
+      establishedAt: connections.establishedAt,
       handle: users.handle,
       displayName: profiles.displayName,
     })
@@ -88,13 +103,19 @@ export async function loadChatContext(
 
   if (!row) return null;
 
+  // 保存された status ではなく**導出**を使う。Cronが遅れていても正しく見える(T-8)
+  const status = deriveStatus(row);
   return {
     connectionId: row.id,
-    status: row.status,
+    status,
     expiresAt: row.expiresAt,
+    graceUntil: row.graceUntil,
+    establishedAt: row.establishedAt,
     partner: { handle: row.handle, displayName: row.displayName },
     // 不変条件1。grace は閲覧のみ、expired は凍結(D-4)
-    canSend: row.status === "active" || row.status === "permanent",
+    canSend: status === "active" || status === "permanent",
+    expiring: isExpiring(row),
+    canChooseRenewal: canChooseRenewal(row),
   };
 }
 
@@ -266,6 +287,54 @@ export async function hideMessageForMe(userId: string, messageId: string) {
     .update(messages)
     .set({ deletedBy: sql`array_append(${messages.deletedBy}, ${userId}::uuid)` })
     .where(and(eq(messages.id, messageId), sql`not (${userId} = any(${messages.deletedBy}))`));
+}
+
+/**
+ * 終了した接続の履歴を、**自分側だけ**完全に消す(D-3 / 憲法第六条)。
+ *
+ * 相手の履歴には触れない。自分の `connection_members` を隠すことで一覧からも消え、
+ * 会話も開けなくなる。再接続したければQRを読み直せば**新しいConnection**になる。
+ *
+ * 終了済みにだけ許す。生きている接続を黙って消せると、相手からは
+ * 「返事が来ない」状態になり、ブロック(S5)と区別がつかなくなる。
+ */
+export async function deleteHistoryForMe(
+  userId: string,
+  connectionId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const ctx = await loadChatContext(userId, connectionId);
+  if (!ctx) return { ok: false, error: "この接続は見つかりません" };
+  if (ctx.status !== "expired") {
+    return { ok: false, error: "履歴を削除できるのは終了した接続だけです" };
+  }
+
+  const db = await getDb();
+  await db
+    .update(messages)
+    .set({ deletedBy: sql`array_append(${messages.deletedBy}, ${userId}::uuid)` })
+    .where(
+      and(
+        eq(messages.connectionId, connectionId),
+        sql`not (${userId} = any(${messages.deletedBy}))`,
+      ),
+    );
+  await db
+    .update(connectionMembers)
+    .set({ hiddenAt: new Date() })
+    .where(
+      and(
+        eq(connectionMembers.connectionId, connectionId),
+        eq(connectionMembers.userId, userId),
+      ),
+    );
+  track({
+    name: "expired_history_deleted",
+    daysSinceConnect: Math.max(
+      0,
+      Math.round((Date.now() - ctx.establishedAt.getTime()) / (24 * 60 * 60 * 1000)),
+    ),
+  });
+  return { ok: true };
 }
 
 /** 会話を開いたときに呼ぶ。未読バッジ用で、**相手には見せない**(D-8)。 */
