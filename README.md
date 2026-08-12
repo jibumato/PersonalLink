@@ -21,6 +21,7 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 | [docs/00-vision.md](docs/00-vision.md) | 構想書 v0.1(founding document・思想の原典) |
 | [docs/01-screen-design.md](docs/01-screen-design.md) | **画面設計書 = MVP仕様書 v0.1**。全20画面の仕様、Connection状態遷移、設計判断(D-1〜D-11)、KPI計測設計 |
 | [docs/02-data-model.md](docs/02-data-model.md) | データモデル v0.1。テーブル定義、不変条件、People OS憲法との対応表 |
+| [docs/03-design-language.md](docs/03-design-language.md) | デザイン言語「NEON-HUD」。データストリーム流体背景・半透明HUD・AR-ready透過原則 |
 | [prototype/index.html](prototype/index.html) | クリック可能プロトタイプ。コアループ全体を実際に操作できる(ブラウザで直接開くだけで動作) |
 
 ## プロトタイプの試し方
@@ -34,6 +35,7 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 5. 入力バーの🔔をタップ → 🌙**ミュート送信**(通知を鳴らさずに送る)
 6. 右パネルで時間を進める → 期限24h前バナー → 継続確認 → 双方継続で ♾恒久化
 7. 「継続しない」ルートも右パネルの「田中さんの選択」で再現可能
+8. 右パネルの「**AR透過モード**」でUIパネルの不透明度を変更 → 背景(実世界の代役)がUI越しに見える度合いを検証
 
 ## 重要な設計判断(抜粋)
 
