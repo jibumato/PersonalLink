@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**Phase 1(Web版MVP)— S1前半 完了。次は S2(QR接続 = キラー体験)。**
+**Phase 1(Web版MVP)— S2 完了。キラー体験(QR接続)が実アプリで動きます。次は S3(チャット)。**
 
 進行管理は **[ROADMAP.md(プロジェクト進行表)](ROADMAP.md)** で行う(マイルストーンM0〜M9・スプリントS0〜S6・KPIゲート・リスク登録簿)。
 
@@ -22,8 +22,8 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 |---|---|
 | [ROADMAP.md](ROADMAP.md) | **プロジェクト進行表**(マイルストーン・スプリント・KPIゲート・リスク。進行管理の単一文書) |
 | [docs/00-vision.md](docs/00-vision.md) | 構想書 v0.1(founding document・思想の原典) |
-| [docs/01-screen-design.md](docs/01-screen-design.md) | **画面設計書 = MVP仕様書 v0.1**。全20画面の仕様、Connection状態遷移、設計判断(D-1〜D-11)、KPI計測設計 |
-| [docs/02-data-model.md](docs/02-data-model.md) | データモデル v0.1。テーブル定義、不変条件、People OS憲法との対応表 |
+| [docs/01-screen-design.md](docs/01-screen-design.md) | **画面設計書 = MVP仕様書 v0.1.4**。全20画面の仕様、Connection状態遷移、設計判断(D-1〜D-15)、KPI計測設計 |
+| [docs/02-data-model.md](docs/02-data-model.md) | データモデル v0.2。テーブル定義、不変条件、People OS憲法との対応表 |
 | [docs/03-design-language.md](docs/03-design-language.md) | デザイン言語「GLASS-HUD」(白ベース)。データストリーム流体背景・半透明HUD・AR-ready透過原則 |
 | [docs/05-tech-stack.md](docs/05-tech-stack.md) | 技術選定メモ(T-1〜T-11)。Next.js / Postgres+Drizzle / DBセッションの根拠 |
 | [docs/06-webauthn-spike.md](docs/06-webauthn-spike.md) | WebAuthnスパイク報告(**保留・参考資料**。Passkeyを再検討する場合に読む) |
@@ -51,10 +51,11 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 - **D-3**: 「継続しない」は相手に通知しない。終了は常に「期限が終了しました」と表示(断る気まずさの排除)
 - **D-7**: 認証方式は**未定**(Passkeyは見送り)。方式次第で「電話番号もメールも不要」を維持できるかが決まる
 - **D-10**: メッセージ本文のスキャン・解析は行わない(KPIは代理指標で計測)
+- **D-14**: QRは `https://<host>/i#<token>`。標準カメラで読めて、トークンはサーバーに送信されない
 
 ## 次のアクション
 
-1. 🤖 **S2(QR接続 = キラー体験)** — 仮ログインがあるため認証方式の決定を待たずに進められる
+1. 🤖 **S3(チャット)** — 送信取り消し・ミュート送信を含む
 2. 👤 **認証方式の決定**([D-7](docs/01-screen-design.md))— S1後半(本人確認)のブロッカー
 3. 👤 Vercel / Neon アカウント(デプロイ時に必要。ローカル開発とCIは外部DBなしで動く)
 

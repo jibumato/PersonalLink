@@ -33,7 +33,7 @@ test("登録してホームに到達し、再訪でもログインが保たれ�
   const id = handle("e2e");
   await signup(page, id, "さとし");
 
-  await expect(page.getByRole("heading", { name: "さとし" })).toBeVisible();
+  await expect(page.getByText("さとし")).toBeVisible();
   await expect(page.getByText(`@${id}`)).toBeVisible();
 
   // セッションCookieで再訪してもログイン状態

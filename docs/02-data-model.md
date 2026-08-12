@@ -116,9 +116,13 @@ L0とL4の区分はカラムレベルで固定し、APIレスポンス組み立�
 | user_id | uuid FK | 表示者 |
 | expiry_days | int | 1 / 7 / 30(このQRで成立するConnectionの期限)|
 | issued_at | timestamptz | 有効期間 = issued_at + 5分 |
-| consumed_at | timestamptz | 使用済み管理(ワンタイム)|
+| consumed_at / consumed_by | timestamptz / uuid | 使用済み管理(ワンタイム)。**未消費のものだけを更新する条件付きUPDATE**で奪い合うため、同時に2人が読んでも1人しか成立しない |
 
-QRペイロード = `token_id + issued_at + expiry_days + サーバー署名(HMAC)`。読み取り側APIで署名・有効期限・consumed を検証。
+QRペイロード = `token_id + サーバー署名(HMAC)`。読み取り側APIで署名・有効期限・consumed を検証する
+(`issued_at` / `expiry_days` はDBから引くため、ペイロードに載せる必要がなかった)。
+
+**QRに載せるのは `https://<host>/i#<payload>` というURL**([D-14](./01-screen-design.md))。
+フラグメントなのでサーバーに送信されず、アクセスログに残らない。
 
 ### connections
 
@@ -126,12 +130,16 @@ QRペイロード = `token_id + issued_at + expiry_days + サーバー署名(HMA
 |---|---|---|
 | id | uuid PK | |
 | status | enum | `active` / `grace` / `permanent` / `expired` |
+| **pair_key** | text | **S2で追加**。2人のIDを昇順に連結した値。「同一ペアの生きたConnectionは最大1つ」(不変条件7)を**部分UNIQUEでDBに刻む**ために持つ。connection_members と重複するが、制約を効かせるにはこの形が要る |
 | expires_at | timestamptz NULL | **NULL = 恒久**(設計判断D-1)|
 | grace_until | timestamptz NULL | expires_at + 48h |
 | established_at | timestamptz | |
 | ended_at | timestamptz NULL | |
 
 `expiring`(残り24h)は状態ではなく `expires_at - now < 24h` の導出値。状態遷移は分単位のバッチジョブ+読み取り時の遅延評価の二重化で駆動する。
+
+**S2の実装**: 不変条件3(`expires_at = NULL` ⟺ `permanent`)を **CHECK制約**で、
+不変条件7を **`status <> 'expired'` の部分UNIQUE**でDBに刻んだ。どちらもテストで検証済み。
 
 ### connection_members
 

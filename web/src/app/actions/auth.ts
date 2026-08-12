@@ -15,6 +15,7 @@ import {
   revokeSession,
 } from "@/lib/session";
 import { assertDevLoginEnabled } from "@/lib/dev-auth";
+import { redeemTicketIfAny } from "./connect";
 
 export type FormState = { error?: string };
 
@@ -64,7 +65,10 @@ export async function saveProfile(_prev: FormState, form: FormData): Promise<For
       target: profiles.userId,
       set: { displayName, bio: bio || null, updatedAt: new Date() },
     });
-  redirect("/home");
+
+  // QR読み取り経由で登録した場合、預かっていたチケットで接続まで完了させる(キラー体験)
+  const connectionId = await redeemTicketIfAny(user.userId);
+  redirect(connectionId ? `/home?established=${connectionId}` : "/home");
 }
 
 export async function logout() {

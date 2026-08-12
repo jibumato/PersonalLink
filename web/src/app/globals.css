@@ -322,3 +322,273 @@ button:focus-visible {
 a {
   color: var(--accent-deep);
 }
+
+/* ============================================================
+   S2: QR接続
+   ============================================================ */
+
+/* タブ(B-2 / B-3) */
+.tabs {
+  display: flex;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.tabs a {
+  flex: 1;
+  padding: 0.7rem;
+  text-align: center;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.tabs a.on {
+  color: var(--accent-deep);
+  border-bottom-color: var(--accent);
+  background: rgba(8, 145, 178, 0.06);
+}
+
+/* QR本体。読み取り精度を最優先し、ここだけは透過させない */
+.qrbox {
+  width: min(15rem, 70vw);
+  aspect-ratio: 1;
+  margin: 1rem auto 0;
+  background: #fff;
+  border: 1px solid rgba(8, 145, 178, 0.4);
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  padding: 0.6rem;
+  box-shadow: 0 4px 22px rgba(23, 60, 75, 0.12);
+}
+
+.qrsvg,
+.qrsvg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.ttl {
+  text-align: center;
+  margin: 0.7rem 0 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.chips {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 2px;
+  padding: 0.4rem 0.9rem;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chip.on {
+  border-color: rgba(180, 145, 10, 0.6);
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+
+/* カメラビュー。現実のファインダーなのでここだけ暗い */
+.cam {
+  position: relative;
+  margin-top: 0.8rem;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: radial-gradient(circle at 30% 30%, #26424c, #0a141a 70%);
+  display: grid;
+  place-items: center;
+}
+
+.cam video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camframe {
+  position: relative;
+  width: 60%;
+  aspect-ratio: 1;
+  border: 1.5px solid rgba(140, 230, 244, 0.85);
+  border-radius: 2px;
+  box-shadow: 0 0 18px rgba(94, 233, 242, 0.2);
+}
+
+.camhint {
+  position: absolute;
+  bottom: 0.8rem;
+  margin: 0;
+  color: #b8d4dc;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+}
+
+/* B-4 接続条件 */
+.cond {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cond li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 0.86rem;
+}
+
+.cond li:last-child {
+  border-bottom: 0;
+}
+
+.cond .sub {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.cond .muted {
+  color: var(--muted);
+}
+
+.cond .lock {
+  color: var(--accent-deep);
+}
+
+/* ホーム */
+.homehead {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.homehead .name,
+.rows .name {
+  font-weight: 700;
+}
+
+.fab {
+  position: sticky;
+  bottom: 1rem;
+  align-self: center;
+  width: 9.5rem;
+  margin-top: auto;
+  padding: 0.85rem 0;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: rgba(8, 145, 178, 0.16);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px rgba(8, 145, 178, 0.55), 0 6px 18px rgba(23, 60, 75, 0.12);
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* B-5 成立オーバーレイ */
+.ovl {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(18, 45, 56, 0.32);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.ovlbox {
+  position: relative;
+  width: min(22rem, 100%);
+  text-align: center;
+  padding: 1.8rem 1.4rem;
+  border-radius: 4px;
+  border: 1px solid rgba(8, 145, 178, 0.4);
+  background: rgba(255, 255, 255, calc(var(--glass) + 0.25));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 34px rgba(23, 60, 75, 0.2);
+}
+
+.ovltitle {
+  margin: 0.6rem 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.pair .dot {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  background: rgba(8, 145, 178, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(8, 145, 178, 0.4);
+}
+
+.pair .wire {
+  width: 2.2rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--good);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ovlbox {
+    animation: ovlin 0.35s ease;
+  }
+  @keyframes ovlin {
+    from {
+      transform: scale(0.94);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}

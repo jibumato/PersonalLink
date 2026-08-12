@@ -1,21 +1,24 @@
 /**
- * PersonalLink データベーススキーマ(S1前半)
+ * PersonalLink データベーススキーマ
  *
  * 設計方針([T-3](../../../docs/05-tech-stack.md)):
  * **不変条件はアプリのif文ではなくDBに刻む。** Drizzle を選んだのはそのため。
  *
- * S1前半のスコープは users / sessions / profiles / handle_reservations。
- * connections 以降は S2 で追加する。
+ * S1: users / sessions / profiles / handle_reservations
+ * S2: qr_tokens / connections / connection_members
  */
 import { sql } from "drizzle-orm";
 import {
   pgTable,
+  pgEnum,
   uuid,
   text,
+  integer,
   timestamp,
   jsonb,
   index,
   uniqueIndex,
+  primaryKey,
   check,
 } from "drizzle-orm/pg-core";
 
@@ -123,3 +126,110 @@ export const profiles = pgTable("profiles", {
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Profile = typeof profiles.$inferSelect;
+
+// ============================================================
+// S2: QR接続
+// ============================================================
+
+/** QRで成立するConnectionの期限。仕様書 B-2 の期限チップ。 */
+export const QR_EXPIRY_DAYS = [1, 7, 30] as const;
+export type QrExpiryDays = (typeof QR_EXPIRY_DAYS)[number];
+/** QRトークンの有効時間(分)。短命にして、スクリーンショットの使い回しを防ぐ(D-2)。 */
+export const QR_TOKEN_TTL_MINUTES = 5;
+/** 期限到達後、閲覧と継続選択ができる猶予(D-4)。 */
+export const GRACE_HOURS = 48;
+
+/**
+ * QRのワンタイムトークン。
+ *
+ * ペイロードは `token_id + 署名`。**使い切り**で、5分で失効する(D-2)。
+ */
+export const qrTokens = pgTable(
+  "qr_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** このQRで成立するConnectionの期限(日)。表示側が決める。 */
+    expiryDays: integer("expiry_days").notNull(),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** 使用済み管理。埋まっていたら二度目は弾く。 */
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    consumedBy: uuid("consumed_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    index("qr_tokens_user_idx").on(t.userId),
+    check("qr_tokens_expiry_days", sql`${t.expiryDays} in (1, 7, 30)`),
+  ],
+);
+
+export const connectionStatus = pgEnum("connection_status", [
+  "active",
+  "grace",
+  "permanent",
+  "expired",
+]);
+
+/**
+ * Connection。このサービスの心臓部(仕様書 §3 の状態機械)。
+ *
+ * 期限とレベルは独立した2軸(D-1)。`expires_at = NULL` が「恒久」を意味する。
+ */
+export const connections = pgTable(
+  "connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    status: connectionStatus("status").notNull().default("active"),
+    /**
+     * 2人のIDを昇順に連結したキー。
+     * 「同一ペアの生きたConnectionは最大1つ」(不変条件7)を**DB制約で**守るために持つ。
+     * connection_members と重複するが、制約を効かせるにはこの形が要る。
+     */
+    pairKey: text("pair_key").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    graceUntil: timestamp("grace_until", { withTimezone: true }),
+    establishedAt: timestamp("established_at", { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+  },
+  (t) => [
+    // 不変条件7: 生きているConnectionは1ペアにつき1つ
+    uniqueIndex("connections_alive_pair_unique")
+      .on(t.pairKey)
+      .where(sql`${t.status} <> 'expired'`),
+    index("connections_expires_idx").on(t.expiresAt),
+    // 不変条件3: expires_at が NULL であることと permanent であることは同値
+    check(
+      "connections_permanent_has_no_expiry",
+      sql`(${t.status} = 'permanent') = (${t.expiresAt} is null)`,
+    ),
+  ],
+);
+
+/** Connection の参加者。1つのConnectionに必ず2行。 */
+export const connectionMembers = pgTable(
+  "connection_members",
+  {
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 自分side の履歴削除。相手側には影響しない(憲法第六条)。 */
+    hiddenAt: timestamp("hidden_at", { withTimezone: true }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.connectionId, t.userId] }),
+    index("connection_members_user_idx").on(t.userId),
+  ],
+);
+
+/** 2人のIDから、順序に依存しないペアキーを作る。 */
+export function pairKeyOf(a: string, b: string): string {
+  return a < b ? `${a}:${b}` : `${b}:${a}`;
+}
+
+export type QrToken = typeof qrTokens.$inferSelect;
+export type Connection = typeof connections.$inferSelect;

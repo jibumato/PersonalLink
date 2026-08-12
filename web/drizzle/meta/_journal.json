@@ -8,6 +8,13 @@
       "when": 1786549579047,
       "tag": "0000_init_s1",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786552406678,
+      "tag": "0001_s2_qr_connections",
+      "breakpoints": true
     }
   ]
 }
