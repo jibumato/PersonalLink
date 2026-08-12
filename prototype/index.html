@@ -556,22 +556,26 @@ function syncHandleUI(){
 }
 function vSignupPasskey(){
   const done = S.regStep >= 1;
-  return `${bar("Passkeyを作成")}
+  return `${bar("本人確認の設定")}
   <div class="body pad">
     <div class="card" style="text-align:center; padding:26px 16px">
-      <div style="font-size:40px">${done ? "✅" : "🔐"}</div>
-      <p style="margin:10px 0 0; font-size:14px">${done ? "Passkeyを作成しました" : "パスワードは作りません。<br>この端末の顔認証・指紋がそのまま鍵になります。"}</p>
-      ${done ? "" : '<div style="margin-top:16px"><button class="btn pri" data-act="make-passkey">Passkeyを作成(デモ)</button></div>'}
+      <div style="font-size:40px">${done ? "✅" : "🚧"}</div>
+      <p style="margin:10px 0 0; font-size:14px">${done
+        ? "設定しました(デモ)"
+        : "<b>この画面は方式が未定です。</b><br>ログイン手段をどうするかは検討中のため、<br>デモでは仮の設定として先へ進みます。"}</p>
+      ${done ? "" : '<div style="margin-top:16px"><button class="btn pri" data-act="make-passkey">仮に設定して進む(デモ)</button></div>'}
     </div>
     ${done ? `
     <div class="card" style="margin-top:14px">
-      <b style="font-size:14px">リカバリーコード</b>
-      <p class="hint" style="margin-top:6px">電話番号もメールも登録しないため、<b>このコードだけ</b>がアカウント回復の手段です。必ず保存してください。</p>
-      <div style="font-family:ui-monospace,monospace; background:var(--a-chip); border-radius:10px; padding:12px; margin-top:10px; font-size:13px; letter-spacing:.06em">K7QM-X2RF-9WPL-D4HT<br>V8NJ-3CZE-YB6A-5GKS</div>
-      <label style="display:flex; gap:8px; align-items:center; margin-top:12px; font-size:13.5px; cursor:pointer">
-        <input type="checkbox" id="ck-saved"> 安全な場所に保存しました
-      </label>
-      <div style="margin-top:14px"><button class="btn pri" id="b-pk-next" disabled data-go="signup-profile">次へ</button></div>
+      <b style="font-size:14px">方式に依存せず決まっていること</b>
+      <ul style="margin:10px 0 0; padding-left:1.1em; font-size:13px; color:var(--a-mut); line-height:1.7">
+        <li>登録全体を<b>60秒以内</b>に終える(イベント会場で使うため)</li>
+        <li>アカウント回復手段を必ず1つ持つ</li>
+        <li>回復時は<b>全端末ログアウト</b>が走る</li>
+        <li>何を集めるかを画面上で明示する</li>
+      </ul>
+      <p class="hint">詳細は仕様書 D-7 / A-3 を参照。</p>
+      <div style="margin-top:14px"><button class="btn pri" data-go="signup-profile">次へ</button></div>
     </div>` : ""}
   </div>`;
 }
@@ -796,7 +800,7 @@ function esc(s){ return String(s??"").replace(/[&<>"']/g, ch => ({"&":"&amp;","<
 const VIEWS = {
   welcome:[vWelcome,"A-1 ウェルカム","登録60秒以内が目標(§4-A)"],
   "signup-id":[vSignupId,"A-2 Universal ID取得","@ID = Universal Identityの入口"],
-  "signup-passkey":[vSignupPasskey,"A-3 Passkey登録","電話番号・メール不要(D-7)"],
+  "signup-passkey":[vSignupPasskey,"A-3 本人確認の設定","方式未定(D-7)。Passkeyは見送り"],
   "signup-profile":[vSignupProfile,"A-4 プロフィール設定","Level 0(公開)の教育を兼ねる"],
   home:[vHome,"B-1 ホーム","期限接近を最上部に表示"],
   qr:[null,"B-2/B-3 QR","表示=接続条件の提示・読み取り"],

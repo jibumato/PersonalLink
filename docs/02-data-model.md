@@ -10,7 +10,7 @@
 
 ```mermaid
 erDiagram
-    users ||--o{ credentials : "Passkey"
+    users ||--o{ credentials : "本人確認(方式未定)"
     users ||--o{ sessions : "ログイン中端末"
     users ||--|| profiles : "L0/L4プロフィール"
     users ||--o{ recovery_codes : ""
@@ -44,17 +44,19 @@ erDiagram
 
 **収集しないもの(憲法第二条)**: 電話番号 / メールアドレス / 氏名(L4詳細プロフィールにユーザーが任意入力する場合を除く)/ 端末の連絡先帳 / 位置情報。
 
-### credentials(Passkey)
+### credentials(本人確認)— **スキーマ未定(TBD)**
 
-| カラム | 型 | 備考 |
-|---|---|---|
-| id | uuid PK | |
-| user_id | uuid FK | |
-| credential_id | bytea UNIQUE | WebAuthn credential ID |
-| public_key | bytea | |
-| sign_count | bigint | |
-| device_label | text | 「iPhone (Safari)」等、UA由来 |
-| created_at / last_used_at | timestamptz | |
+> ⚠️ **Passkey は見送りとなり、認証方式は未定**([D-7](./01-screen-design.md))。
+> このテーブルの具体的なカラムは方式決定後に定める。当初の Passkey 版スキーマは v0.1 の履歴を参照。
+
+方式に依存せず確定している点:
+
+- `user_id` に紐づく **0..N 件**の本人確認手段を持てる構造にする(端末追加・手段の複数持ちに対応するため)
+- 秘密情報(パスワード等)を保持する方式を選ぶ場合は、**必ずハッシュ化**して保存する(平文カラムを作らない)
+- `created_at` / `last_used_at` / 表示用ラベルは方式によらず持つ
+
+**セッションと分離しておくこと**: `sessions` は方式に依存しない(下記)。認証方式が変わっても
+「全端末ログアウト」の実装は影響を受けない設計にする。
 
 ### sessions
 
@@ -209,7 +211,7 @@ group_messages: messagesと同構造(レベル検証なし=D-11)。
 
 | 憲法 | 実装 |
 |---|---|
-| 第二条(最小収集) | 電話番号・メール・連絡先帳・位置情報を持つカラムが存在しない。計測イベントはメタデータのみ |
+| 第二条(最小収集) | 連絡先帳・位置情報を持つカラムが存在しない。計測イベントはメタデータのみ。**電話番号・メールを持つかは認証方式の決定に依存(D-7)** |
 | 第五条(段階的公開) | profiles の L0/L4 カラム分離 + level_grants によるサーバー側判定 |
 | 第六条(忘れる権利) | hidden_at(自分側削除)/ deleted_by / アカウント物理削除 / 全データJSONエクスポート |
-| 第十一条(信用不要) | Passkey(パスワードを預からない)/ D-9のとおりE2EEはPhase 3で導入、それまで本仕様書で正直に開示 |
+| 第十一条(信用不要) | **認証方式が未定のため再評価が必要**(Passkeyは「パスワードを預からない」を満たしていた)/ D-9のとおりE2EEはPhase 3で導入、それまで本仕様書で正直に開示 |

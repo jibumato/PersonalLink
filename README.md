@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**Phase 1(Web版MVP)— S0(技術選定・環境構築)実装完了。オーナーのドメイン確定と実機検証待ち。**
+**Phase 1(Web版MVP)— S0 完了。S1 は認証方式の決定待ち(セッション層から先行着手は可能)。**
 
 進行管理は **[ROADMAP.md(プロジェクト進行表)](ROADMAP.md)** で行う(マイルストーンM0〜M9・スプリントS0〜S6・KPIゲート・リスク登録簿)。
 
@@ -25,8 +25,8 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 | [docs/01-screen-design.md](docs/01-screen-design.md) | **画面設計書 = MVP仕様書 v0.1**。全20画面の仕様、Connection状態遷移、設計判断(D-1〜D-11)、KPI計測設計 |
 | [docs/02-data-model.md](docs/02-data-model.md) | データモデル v0.1。テーブル定義、不変条件、People OS憲法との対応表 |
 | [docs/03-design-language.md](docs/03-design-language.md) | デザイン言語「GLASS-HUD」(白ベース)。データストリーム流体背景・半透明HUD・AR-ready透過原則 |
-| [docs/05-tech-stack.md](docs/05-tech-stack.md) | 技術選定メモ(T-1〜T-11)。Next.js / Postgres+Drizzle / SimpleWebAuthn / DBセッションの根拠 |
-| [docs/06-webauthn-spike.md](docs/06-webauthn-spike.md) | WebAuthn実機スパイク報告。**RP IDとドメインの依存**という重要な発見を含む |
+| [docs/05-tech-stack.md](docs/05-tech-stack.md) | 技術選定メモ(T-1〜T-11)。Next.js / Postgres+Drizzle / DBセッションの根拠 |
+| [docs/06-webauthn-spike.md](docs/06-webauthn-spike.md) | WebAuthnスパイク報告(**保留・参考資料**。Passkeyを再検討する場合に読む) |
 | [web/](web/) | Phase 1 アプリケーション(Next.js 16)。[web/README.md](web/README.md) |
 | [prototype/index.html](prototype/index.html) | クリック可能プロトタイプ。コアループ全体を実際に操作できる(ブラウザで直接開くだけで動作) |
 
@@ -34,7 +34,7 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 
 `prototype/index.html` をブラウザで開く(ビルド不要・依存なし)。
 
-1. オンボーディング(A-1〜A-4): ID取得 → Passkey → プロフィール
+1. オンボーディング(A-1〜A-4): ID取得 → 本人確認(**方式未定**)→ プロフィール
 2. QR読み取り(デモボタン)→ 接続確認 → Connection成立
 3. チャット: 📷ボタン(🔒)からレベル提案 → 相手が自動承諾 → Lv.2解放
 4. メッセージの吹き出しをタップ → **送信取り消し**(24時間以内)/ 自分の画面から削除
@@ -49,15 +49,15 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 
 - **D-1**: 期限(いつまで)とレベル(どこまで共有)は独立した2軸。Level 5「恒久」は期限の撤廃として実装
 - **D-3**: 「継続しない」は相手に通知しない。終了は常に「期限が終了しました」と表示(断る気まずさの排除)
-- **D-7**: 電話番号・メールアドレスは一切収集しない(Passkey + リカバリーコード)
+- **D-7**: 認証方式は**未定**(Passkeyは見送り)。方式次第で「電話番号もメールも不要」を維持できるかが決まる
 - **D-10**: メッセージ本文のスキャン・解析は行わない(KPIは代理指標で計測)
 
 ## 次のアクション
 
 S0の実装分は完了。残りは**オーナーのアカウント作業と実機検証**([ROADMAP.md](ROADMAP.md) 参照)。
 
-1. 👤 **本番ドメインの確定**(Passkeyは RP ID に紐づき、後から変更できない)
-2. 👤 Vercel / Neon アカウント + ステージング固定ドメイン → 実機で Passkey 検証
-3. 🤖 S1(認証基盤: Universal ID + Passkey + セッション管理)着手
+1. 👤 **認証方式の決定**([D-7](docs/01-screen-design.md))— S1後半のブロッカー
+2. 🤖 決定を待たずに **S1前半**(DBスキーマ・@ID取得・DBセッション・端末管理)へ着手可能
+3. 👤 Vercel / Neon アカウント(S1中に必要)
 
 長期ロードマップは構想書 §17、進行表は ROADMAP.md を参照。
