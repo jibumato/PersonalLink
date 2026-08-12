@@ -1,34 +1,23 @@
 /*
- * S0時点の最小トークン。
- * GLASS-HUD(docs/03-design-language.md)の本適用はS1のUI実装から。
+ * GLASS-HUD(白ベース)— docs/03-design-language.md
+ * パネル不透明度は --glass に集約する。直値の rgba でパネルを塗らないこと。
  */
 :root {
   --bg: #eef4f6;
-  --surface: #ffffff;
   --fg: #12262e;
   --muted: #5b7a84;
-  --line: rgba(8, 145, 178, 0.24);
+  --line: rgba(8, 145, 178, 0.3);
+  --line-soft: rgba(8, 145, 178, 0.14);
   --accent: #0891b2;
-  --on-accent: #ffffff;
+  --accent-deep: #0e7490;
+  --accent-ink: #045a6d;
   --good: #0f9d6a;
   --bad: #d6455d;
   --warn: #8a6a00;
+  --warn-bg: rgba(245, 217, 10, 0.2);
+  --glass: 0.62;
+  --panel: rgba(255, 255, 255, var(--glass));
   --mono: ui-monospace, "SF Mono", Consolas, Menlo, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b1418;
-    --surface: #12222a;
-    --fg: #e6f2f5;
-    --muted: #8aa8b2;
-    --line: rgba(94, 233, 242, 0.22);
-    --accent: #5ee9f2;
-    --on-accent: #08191f;
-    --good: #3ef0a5;
-    --bad: #ff7285;
-    --warn: #f5d90a;
-  }
 }
 
 * {
@@ -44,11 +33,292 @@ body {
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI",
+    system-ui, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
-a {
+/* 背景の流体ストリーム。UIはこの上に半透明で重なる(AR-ready) */
+#fx {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+}
+
+.shell {
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 100dvh;
+}
+
+/* --- HUDパネル(コーナーブラケット付き) --- */
+.panel {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1.1rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.panel::before,
+.panel::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.panel::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1.5px solid rgba(8, 145, 178, 0.6);
+  border-left: 1.5px solid rgba(8, 145, 178, 0.6);
+}
+
+.panel::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1.5px solid rgba(8, 145, 178, 0.6);
+  border-right: 1.5px solid rgba(8, 145, 178, 0.6);
+}
+
+.eyebrow {
+  font: 700 0.64rem/1 var(--mono);
+  letter-spacing: 0.2em;
+  color: var(--accent-deep);
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+  text-wrap: balance;
+}
+
+h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+
+.lede {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* --- ボタン(チャンファー) --- */
+.btn {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, rgba(8, 145, 178, 0.2), rgba(8, 145, 178, 0.11));
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px rgba(8, 145, 178, 0.55);
+}
+
+.btn-primary:disabled {
+  background: rgba(91, 122, 132, 0.1);
+  color: #93aab2;
+  box-shadow: inset 0 0 0 1px rgba(91, 122, 132, 0.25);
+  cursor: default;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.4);
+  color: var(--accent-deep);
+  box-shadow: inset 0 0 0 1px rgba(8, 145, 178, 0.45);
+}
+
+.btn-ghost {
+  background: none;
+  color: var(--muted);
+  font-weight: 500;
+  clip-path: none;
+}
+
+.btn-danger {
+  background: rgba(214, 69, 93, 0.08);
+  color: var(--bad);
+  box-shadow: inset 0 0 0 1px rgba(214, 69, 93, 0.45);
+}
+
+.btn:focus-visible,
+a:focus-visible,
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* --- フォーム --- */
+.field {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.75rem 0.85rem;
+  /* 16px 未満だと iOS がフォーカス時に拡大する */
+  font-size: 16px;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--fg);
+}
+
+.field::placeholder {
+  color: #8aa5ad;
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(8, 145, 178, 0.35);
+}
+
+.handle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.handle-row .at {
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--accent);
+}
+
+.hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.hint:empty {
+  display: none;
+}
+
+.hint-error {
+  color: var(--bad);
+}
+
+.hint-ok {
+  color: var(--good);
+  font-weight: 700;
+}
+
+.label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+/* --- 一覧(F-3 端末) --- */
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rows li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.rows li:last-child {
+  border-bottom: 0;
+}
+
+.rows .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.rows .sub {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font: 700 0.66rem/1 var(--mono);
+  border-radius: 2px;
+  padding: 3px 7px;
+  background: rgba(8, 145, 178, 0.12);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px rgba(8, 145, 178, 0.35);
+}
+
+.badge-warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+  box-shadow: inset 0 0 0 1px rgba(180, 145, 10, 0.45);
+}
+
+.notice {
+  background: var(--warn-bg);
+  border: 1px solid rgba(180, 145, 10, 0.4);
+  border-radius: 4px;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.8rem;
+  color: var(--warn);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.linkrow {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.84rem;
+}
+
+a {
+  color: var(--accent-deep);
 }

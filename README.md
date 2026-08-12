@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**Phase 1(Web版MVP)— S0 完了。S1 は認証方式の決定待ち(セッション層から先行着手は可能)。**
+**Phase 1(Web版MVP)— S1前半 完了。次は S2(QR接続 = キラー体験)。**
 
 進行管理は **[ROADMAP.md(プロジェクト進行表)](ROADMAP.md)** で行う(マイルストーンM0〜M9・スプリントS0〜S6・KPIゲート・リスク登録簿)。
 
@@ -27,7 +27,7 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 | [docs/03-design-language.md](docs/03-design-language.md) | デザイン言語「GLASS-HUD」(白ベース)。データストリーム流体背景・半透明HUD・AR-ready透過原則 |
 | [docs/05-tech-stack.md](docs/05-tech-stack.md) | 技術選定メモ(T-1〜T-11)。Next.js / Postgres+Drizzle / DBセッションの根拠 |
 | [docs/06-webauthn-spike.md](docs/06-webauthn-spike.md) | WebAuthnスパイク報告(**保留・参考資料**。Passkeyを再検討する場合に読む) |
-| [web/](web/) | Phase 1 アプリケーション(Next.js 16)。[web/README.md](web/README.md) |
+| [web/](web/) | **Phase 1 アプリケーション**(Next.js 16 + Postgres/Drizzle)。[web/README.md](web/README.md) |
 | [prototype/index.html](prototype/index.html) | クリック可能プロトタイプ。コアループ全体を実際に操作できる(ブラウザで直接開くだけで動作) |
 
 ## プロトタイプの試し方
@@ -54,10 +54,8 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 
 ## 次のアクション
 
-S0の実装分は完了。残りは**オーナーのアカウント作業と実機検証**([ROADMAP.md](ROADMAP.md) 参照)。
-
-1. 👤 **認証方式の決定**([D-7](docs/01-screen-design.md))— S1後半のブロッカー
-2. 🤖 決定を待たずに **S1前半**(DBスキーマ・@ID取得・DBセッション・端末管理)へ着手可能
-3. 👤 Vercel / Neon アカウント(S1中に必要)
+1. 🤖 **S2(QR接続 = キラー体験)** — 仮ログインがあるため認証方式の決定を待たずに進められる
+2. 👤 **認証方式の決定**([D-7](docs/01-screen-design.md))— S1後半(本人確認)のブロッカー
+3. 👤 Vercel / Neon アカウント(デプロイ時に必要。ローカル開発とCIは外部DBなしで動く)
 
 長期ロードマップは構想書 §17、進行表は ROADMAP.md を参照。

@@ -1,6 +1,8 @@
 # PersonalLink データモデル設計
 
-**Version 0.1 / 2026年8月**
+**Version 0.2 / 2026年8月**(S1前半の実装に合わせて更新)
+
+> 実装は [web/src/db/schema.ts](../web/src/db/schema.ts)。S1で追加した点は各節に「S1で追加」と明記した。
 
 [画面設計書(01-screen-design.md)](./01-screen-design.md) の仕様を支えるデータモデル。Phase 1(Web版MVP)対象。RDB(PostgreSQL想定)。
 
@@ -42,6 +44,9 @@ erDiagram
 | handle_changed_at | timestamptz | 変更は90日に1回 |
 | created_at / deleted_at | timestamptz | 削除は物理削除を基本(憲法第六条)。deleted_atは削除処理の猶予管理用 |
 
+**S1の実装**: handle の UNIQUE は `deleted_at IS NULL` の**部分UNIQUE**。
+形式(`^[a-z0-9_]{3,20}$`)は **CHECK制約**でDBにも刻む — APIを経由しない経路でも壊れないようにするため。
+
 **収集しないもの(憲法第二条)**: 電話番号 / メールアドレス / 氏名(L4詳細プロフィールにユーザーが任意入力する場合を除く)/ 端末の連絡先帳 / 位置情報。
 
 ### credentials(本人確認)— **スキーマ未定(TBD)**
@@ -64,8 +69,12 @@ erDiagram
 |---|---|---|
 | id | uuid PK | |
 | user_id | uuid FK | |
-| device_label | text | |
+| **token_hash** | text UNIQUE | **S1で追加**。Cookieに入れる不透明トークンの sha256。トークン本体は保存しない — DBが漏れてもセッションを乗っ取れないようにするため |
+| device_label | text | 「iPhone (Safari)」等。端末識別ではなく F-3 で見分けるための粗い分類にとどめる(憲法第二条)|
+| expires_at | timestamptz | **S1で追加**。既定90日 |
 | created_at / last_seen_at / revoked_at | timestamptz | 「全端末ログアウト」= 一括revoke |
+
+**認証方式に依存しない**(T-4)。方式が決まってもこのテーブルと実装は変更不要。
 
 ### recovery_codes
 
@@ -74,6 +83,18 @@ erDiagram
 | user_id | uuid FK | |
 | code_hash | text | Argon2。平文は発行時のみ表示・保存しない |
 | used_at | timestamptz | 使用は1回。使用時に全セッションrevoke+再発行 |
+
+### handle_reservations(**S1で追加**)
+
+| カラム | 型 | 備考 |
+|---|---|---|
+| handle | text PK | 手放された handle |
+| previous_user_id | uuid FK NULL | 手放した本人。本人だけは予約期間中でも取り戻せる |
+| released_at | timestamptz | |
+| reserved_until | timestamptz | この時刻を過ぎたら誰でも取得できる(既定90日)|
+
+仕様書 A-2 の「ID変更後、旧IDは90日間再取得不可(なりすまし防止)」を満たすには
+旧 handle を覚えておく必要がある。データモデル v0.1 に無かったため S1 で追加した。
 
 ### profiles
 

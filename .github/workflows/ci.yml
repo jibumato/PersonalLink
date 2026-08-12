@@ -15,7 +15,7 @@ defaults:
 
 jobs:
   verify:
-    name: lint / typecheck / build
+    name: lint / typecheck / build / unit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +28,11 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+      # DB制約・ID検証・仮ログインのガードを検証する(PGliteなので外部DB不要)
+      - run: npm run test:unit
 
   e2e:
-    name: e2e (WebAuthn virtual authenticator)
+    name: e2e (登録〜全端末ログアウト)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +49,7 @@ jobs:
       # ここで作り直す方が単純で壊れにくい(.next はドット始まりのため
       # upload-artifact の既定設定では収集されない)
       - run: npm run build
-      - run: npm test
+      - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
