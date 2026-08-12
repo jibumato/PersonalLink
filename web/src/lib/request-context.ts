@@ -1,8 +1,6 @@
 /**
  * リクエストからホストとプロトコルを取り出す。
- *
- * WebAuthnは RP ID(ホスト)と origin の一致を検証するため、
- * リバースプロキシ(Vercel)越しでも正しい値を得る必要がある。
+ * リバースプロキシ(Vercel)越しでも正しい値を得るため転送ヘッダを見る。
  */
 export function requestContext(req: Request): { host: string; proto: string; origin: string } {
   const h = req.headers;

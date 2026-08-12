@@ -9,7 +9,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // 実機のPasskeyダイアログ表示中に意図せずズームしないよう、拡大は許可しつつ初期値を固定する
   maximumScale: 5,
 };
 

@@ -525,7 +525,7 @@ function vSignupId(){
     <p class="hint">3〜20文字 / 英小文字・数字・アンダースコア</p>
     <p class="hint" id="handle-msg" aria-live="polite"></p>
     <p class="hint" style="margin-top:14px">💡 表示名(ニックネーム)は別に設定できます。IDに本名を使う必要はありません。</p>
-    <div style="margin-top:22px"><button class="btn pri" id="b-id-next" data-go="signup-passkey" disabled>次へ</button></div>
+    <div style="margin-top:22px"><button class="btn pri" id="b-id-next" data-go="signup-auth" disabled>次へ</button></div>
   </div>`;
 }
 
@@ -554,7 +554,7 @@ function syncHandleUI(){
   msg.className = r.cls;
   btn.disabled = !r.ok;
 }
-function vSignupPasskey(){
+function vSignupAuth(){
   const done = S.regStep >= 1;
   return `${bar("本人確認の設定")}
   <div class="body pad">
@@ -563,7 +563,7 @@ function vSignupPasskey(){
       <p style="margin:10px 0 0; font-size:14px">${done
         ? "設定しました(デモ)"
         : "<b>この画面は方式が未定です。</b><br>ログイン手段をどうするかは検討中のため、<br>デモでは仮の設定として先へ進みます。"}</p>
-      ${done ? "" : '<div style="margin-top:16px"><button class="btn pri" data-act="make-passkey">仮に設定して進む(デモ)</button></div>'}
+      ${done ? "" : '<div style="margin-top:16px"><button class="btn pri" data-act="auth-stub">仮に設定して進む(デモ)</button></div>'}
     </div>
     ${done ? `
     <div class="card" style="margin-top:14px">
@@ -800,7 +800,7 @@ function esc(s){ return String(s??"").replace(/[&<>"']/g, ch => ({"&":"&amp;","<
 const VIEWS = {
   welcome:[vWelcome,"A-1 ウェルカム","登録60秒以内が目標(§4-A)"],
   "signup-id":[vSignupId,"A-2 Universal ID取得","@ID = Universal Identityの入口"],
-  "signup-passkey":[vSignupPasskey,"A-3 本人確認の設定","方式未定(D-7)。Passkeyは見送り"],
+  "signup-auth":[vSignupAuth,"A-3 本人確認の設定","方式未定(D-7)。Passkeyは見送り"],
   "signup-profile":[vSignupProfile,"A-4 プロフィール設定","Level 0(公開)の教育を兼ねる"],
   home:[vHome,"B-1 ホーム","期限接近を最上部に表示"],
   qr:[null,"B-2/B-3 QR","表示=接続条件の提示・読み取り"],
@@ -862,7 +862,7 @@ screenEl.addEventListener("click", e => {
   if(t.dataset.go){ S.view = t.dataset.go; S.overlay = null; render(); return; }
   const a = t.dataset.act;
   if(a === "login-note") toast("デモでは「はじめる」からどうぞ");
-  if(a === "make-passkey"){ S.regStep = 1; render(); }
+  if(a === "auth-stub"){ S.regStep = 1; render(); }
   if(a === "finish-signup"){ const n = $("#in-name"); S.name = (n && n.value.trim()) || "さとし"; if(!S.handle) S.handle = "satoshi"; S.view = "home"; render(); toast("ようこそ!"); }
   if(a === "scan-demo"){ S.view = "confirm"; render(); }
   if(a === "id-note") toast("ID接続は相手に承認リクエストが届きます(QRと違い即成立しません)");
