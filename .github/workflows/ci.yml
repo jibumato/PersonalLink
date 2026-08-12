@@ -28,17 +28,10 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
-      - name: Keep the build for the e2e job
-        uses: actions/upload-artifact@v4
-        with:
-          name: next-build
-          path: web/.next
-          retention-days: 1
 
   e2e:
     name: e2e (WebAuthn virtual authenticator)
     runs-on: ubuntu-latest
-    needs: verify
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -47,13 +40,13 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          name: next-build
-          path: web/.next
       # ブラウザのビルド番号は Playwright のバージョンに厳密対応するため、
       # package.json では exact pin している(^ を付けない)
       - run: npx playwright install --with-deps chromium
+      # ビルドは10秒程度なので、verifyジョブから成果物を受け渡すより
+      # ここで作り直す方が単純で壊れにくい(.next はドット始まりのため
+      # upload-artifact の既定設定では収集されない)
+      - run: npm run build
       - run: npm test
       - uses: actions/upload-artifact@v4
         if: failure()
