@@ -3,3 +3,11 @@ dist/
 .env
 .env.*
 .DS_Store
+
+# Next.js / web
+web/.next/
+web/out/
+web/next-env.d.ts
+web/playwright-report/
+web/test-results/
+web/.vercel/

@@ -6,7 +6,7 @@
 
 ## 現在地
 
-**Phase 1(Web版MVP)— 仕様策定完了、実装着手前。次は S0(技術選定・環境構築)。**
+**Phase 1(Web版MVP)— S0(技術選定・環境構築)実装完了。オーナーのドメイン確定と実機検証待ち。**
 
 進行管理は **[ROADMAP.md(プロジェクト進行表)](ROADMAP.md)** で行う(マイルストーンM0〜M9・スプリントS0〜S6・KPIゲート・リスク登録簿)。
 
@@ -25,6 +25,9 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 | [docs/01-screen-design.md](docs/01-screen-design.md) | **画面設計書 = MVP仕様書 v0.1**。全20画面の仕様、Connection状態遷移、設計判断(D-1〜D-11)、KPI計測設計 |
 | [docs/02-data-model.md](docs/02-data-model.md) | データモデル v0.1。テーブル定義、不変条件、People OS憲法との対応表 |
 | [docs/03-design-language.md](docs/03-design-language.md) | デザイン言語「GLASS-HUD」(白ベース)。データストリーム流体背景・半透明HUD・AR-ready透過原則 |
+| [docs/05-tech-stack.md](docs/05-tech-stack.md) | 技術選定メモ(T-1〜T-11)。Next.js / Postgres+Drizzle / SimpleWebAuthn / DBセッションの根拠 |
+| [docs/06-webauthn-spike.md](docs/06-webauthn-spike.md) | WebAuthn実機スパイク報告。**RP IDとドメインの依存**という重要な発見を含む |
+| [web/](web/) | Phase 1 アプリケーション(Next.js 16)。[web/README.md](web/README.md) |
 | [prototype/index.html](prototype/index.html) | クリック可能プロトタイプ。コアループ全体を実際に操作できる(ブラウザで直接開くだけで動作) |
 
 ## プロトタイプの試し方
@@ -51,10 +54,10 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 
 ## 次のアクション
 
-**[ROADMAP.md](ROADMAP.md) の S0(技術選定・環境構築)から。**
+S0の実装分は完了。残りは**オーナーのアカウント作業と実機検証**([ROADMAP.md](ROADMAP.md) 参照)。
 
-1. S0: 技術選定メモ + WebAuthn実機スパイク(最重要リスクの先行検証)+ CI/デプロイ環境
-2. S1〜S6: 認証 → QR接続 → チャット → 期限エンジン → レベル・安全 → グループ・計測(各2週間)
-3. 並走: プロトタイプのユーザーテスト(イベント参加経験者5名)
+1. 👤 **本番ドメインの確定**(Passkeyは RP ID に紐づき、後から変更できない)
+2. 👤 Vercel / Neon アカウント + ステージング固定ドメイン → 実機で Passkey 検証
+3. 🤖 S1(認証基盤: Universal ID + Passkey + セッション管理)着手
 
 長期ロードマップは構想書 §17、進行表は ROADMAP.md を参照。

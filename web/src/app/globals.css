@@ -1,0 +1,54 @@
+/*
+ * S0時点の最小トークン。
+ * GLASS-HUD(docs/03-design-language.md)の本適用はS1のUI実装から。
+ */
+:root {
+  --bg: #eef4f6;
+  --surface: #ffffff;
+  --fg: #12262e;
+  --muted: #5b7a84;
+  --line: rgba(8, 145, 178, 0.24);
+  --accent: #0891b2;
+  --on-accent: #ffffff;
+  --good: #0f9d6a;
+  --bad: #d6455d;
+  --warn: #8a6a00;
+  --mono: ui-monospace, "SF Mono", Consolas, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1418;
+    --surface: #12222a;
+    --fg: #e6f2f5;
+    --muted: #8aa8b2;
+    --line: rgba(94, 233, 242, 0.22);
+    --accent: #5ee9f2;
+    --on-accent: #08191f;
+    --good: #3ef0a5;
+    --bad: #ff7285;
+    --warn: #f5d90a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+}
