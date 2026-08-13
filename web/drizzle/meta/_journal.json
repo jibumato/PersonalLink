@@ -29,6 +29,13 @@
       "when": 1786576308009,
       "tag": "0003_s4_renewal",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786631646107,
+      "tag": "0004_s5_levels_safety",
+      "breakpoints": true
     }
   ]
 }

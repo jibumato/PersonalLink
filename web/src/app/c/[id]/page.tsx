@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { listMessages, loadChatContext, markRead } from "@/lib/message";
 import { remainingLabel } from "@/lib/connection";
 import { reconcileStatus } from "@/lib/renewal";
+import { hasLevel, pendingProposalFor } from "@/lib/level";
 import { Chat } from "./chat";
 
 /** C-1 チャット(1対1)。 */
@@ -17,8 +18,11 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   const ctx = await loadChatContext(user.userId, id);
   if (!ctx) notFound();
 
-  const [initial] = await Promise.all([
+  const [initial, canAttach, pendingProposal] = await Promise.all([
     listMessages(user.userId, id),
+    // 不変条件2。UIのゲートだが、送信経路でもサーバーが必ず再確認する
+    hasLevel(id, 2),
+    pendingProposalFor(user.userId, id),
     // 開いた時点で既読にする。これは自分の未読バッジ用で、相手には見せない(D-8)
     markRead(user.userId, id),
   ]);
@@ -58,6 +62,8 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
         initial={initial}
         canSend={ctx.canSend}
         status={ctx.status}
+        canAttach={canAttach}
+        pendingProposal={pendingProposal}
       />
     </main>
   );

@@ -33,7 +33,25 @@ export type AnalyticsEvent =
   | { name: "connection_permanent"; daysSinceConnect: number }
   // D-3 終了
   | { name: "connection_expired"; daysSinceConnect: number }
-  | { name: "expired_history_deleted"; daysSinceConnect: number };
+  | { name: "expired_history_deleted"; daysSinceConnect: number }
+  // C-2 / E-1 レベル(S5)
+  | { name: "connection_info_viewed" }
+  | { name: "level_proposed"; level: number }
+  | { name: "level_accepted"; level: number; hoursToAccept: number }
+  | { name: "level_revoked"; level: number }
+  | { name: "permanent_proposed" }
+  | { name: "attachment_sent"; kind: "image" | "file"; kb: number }
+  // F-1 安全(S5)
+  | { name: "block_created" }
+  | { name: "block_released" }
+  | {
+      name: "report_submitted";
+      category: "impersonation" | "harassment" | "inappropriate" | "other";
+      withMessages: boolean;
+    }
+  // F-2 データ(S5)
+  | { name: "data_exported" }
+  | { name: "account_deleted"; daysSinceSignup: number };
 
 /**
  * イベントを記録する。

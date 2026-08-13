@@ -55,6 +55,33 @@ export async function hideForMe(messageId: string) {
   return { ok: true as const };
 }
 
+/**
+ * 添付を送る(不変条件2)。Lv.2 が解放されていない接続では送れない。
+ *
+ * Server Action で FormData を受ける。ファイルは Buffer にしてから渡す。
+ */
+export async function sendAttachmentAction(form: FormData) {
+  const user = await requireUser();
+  const connectionId = String(form.get("connectionId") ?? "");
+  const muted = form.get("muted") === "1";
+  const file = form.get("file");
+  if (!(file instanceof File)) return { ok: false as const, error: "ファイルを選んでください" };
+
+  const { sendAttachment } = await import("@/lib/attachment");
+  const r = await sendAttachment(
+    user.userId,
+    connectionId,
+    {
+      mime: file.type,
+      filename: file.name,
+      data: Buffer.from(await file.arrayBuffer()),
+    },
+    muted,
+  );
+  if (r.ok) revalidatePath("/home");
+  return r;
+}
+
 /** D-3 終了した接続の履歴を自分側から消す(憲法第六条)。相手側には残る。 */
 export async function deleteHistory(connectionId: string) {
   const user = await requireUser();

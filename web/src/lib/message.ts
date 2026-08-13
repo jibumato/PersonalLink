@@ -15,6 +15,8 @@ import { and, asc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
 import {
+  attachments,
+  blocks,
   connectionMembers,
   connections,
   messages,
@@ -48,6 +50,10 @@ export type MessageView = {
   muted?: boolean;
   /** 自分の送信のみ。取り消せる時間内か(D-12) */
   canRetract?: boolean;
+  /** 添付(image / file のとき)。取り消し済みなら消えている */
+  attachment?: { id: string; filename: string; mime: string };
+  /** Lv.2 が停止されていて中身を見られない状態(T-6)。本文もファイル名も出さない */
+  locked?: boolean;
 };
 
 export type ChatContext = {
@@ -56,9 +62,16 @@ export type ChatContext = {
   expiresAt: Date | null;
   graceUntil: Date | null;
   establishedAt: Date;
-  partner: { handle: string; displayName: string | null };
+  partner: { userId: string; handle: string; displayName: string | null };
   /** メッセージを送れる状態か(不変条件1) */
   canSend: boolean;
+  /**
+   * 自分がこの相手をブロックしているか(F-1)。
+   *
+   * ⚠️ **自分の状態だけ**。相手が自分をブロックしているかは、
+   * この型にもAPIにも存在しない — 存在したら silent block ではなくなる。
+   */
+  blockedByMe: boolean;
   /** 期限接近。D-1 のバナーを出すか */
   expiring: boolean;
   /** 継続確認(D-2)を受け付ける期間か */
@@ -80,6 +93,7 @@ export async function loadChatContext(
       expiresAt: connections.expiresAt,
       graceUntil: connections.graceUntil,
       establishedAt: connections.establishedAt,
+      partnerId: partner.userId,
       handle: users.handle,
       displayName: profiles.displayName,
     })
@@ -103,6 +117,9 @@ export async function loadChatContext(
 
   if (!row) return null;
 
+  const { isBlockedByMe } = await import("./safety");
+  const blockedByMe = await isBlockedByMe(userId, row.partnerId);
+
   // 保存された status ではなく**導出**を使う。Cronが遅れていても正しく見える(T-8)
   const status = deriveStatus(row);
   return {
@@ -111,9 +128,11 @@ export async function loadChatContext(
     expiresAt: row.expiresAt,
     graceUntil: row.graceUntil,
     establishedAt: row.establishedAt,
-    partner: { handle: row.handle, displayName: row.displayName },
+    partner: { userId: row.partnerId, handle: row.handle, displayName: row.displayName },
     // 不変条件1。grace は閲覧のみ、expired は凍結(D-4)
-    canSend: status === "active" || status === "permanent",
+    // ブロック中は自分からも送らない。届かない相手に一方的に投げ続ける形を作らない
+    canSend: (status === "active" || status === "permanent") && !blockedByMe,
+    blockedByMe,
     expiring: isExpiring(row),
     canChooseRenewal: canChooseRenewal(row),
   };
@@ -123,16 +142,23 @@ function toView(
   row: typeof messages.$inferSelect,
   userId: string,
   now = Date.now(),
+  attachment?: { id: string; filename: string; mime: string },
+  attachmentsVisible = true,
 ): MessageView {
   const mine = row.senderId === userId;
+  // Lv.2 を停止すると、すでに送られた添付も見えなくなる(T-6)。
+  // ファイル名も出さない — 名前だけでも中身が推測できることがある
+  const locked = attachment !== undefined && !attachmentsVisible;
   const view: MessageView = {
     id: row.id,
     kind: row.kind,
-    body: row.body,
+    body: locked ? null : row.body,
     mine,
     createdAt: row.createdAt.toISOString(),
     retracted: row.retractedAt !== null,
   };
+  if (locked) view.locked = true;
+  else if (attachment) view.attachment = attachment;
   if (mine) {
     // ここでしか muted / canRetract を載せない(D-13 / D-12)
     view.muted = row.muted;
@@ -141,6 +167,38 @@ function toView(
       now - row.createdAt.getTime() < RETRACT_WINDOW_HOURS * 60 * 60 * 1000;
   }
   return view;
+}
+
+/** 添付を送った直後、送信者に返す1件分。添付IDは送信元でも取り直す。 */
+export function toViewForSender(
+  row: typeof messages.$inferSelect,
+  userId: string,
+  filename: string,
+): MessageView {
+  const view = toView(row, userId);
+  // 実体のIDは送信直後に引き直すのが確実だが、UIは即座に描きたい。
+  // ここでは表示に必要な情報だけ載せ、IDは次のポーリングで埋まる
+  view.body = view.body ?? filename;
+  return view;
+}
+
+/**
+ * ブロック中に送られてきたものを自分の視界から外す条件(F-1)。
+ *
+ * ⚠️ **相手側は何も変わらない。** 行は普通に作られ、送信は成功する。
+ * 変わるのは「ブロックした側に見えるか」だけ。だから相手からは区別がつかない。
+ *
+ * 解除しても**ブロック中のぶんは配信しない**ので、期間で判定する。
+ * 解除済みの行を残しているのはこのため。
+ */
+function notBlockedFor(userId: string) {
+  return sql`not exists (
+    select 1 from ${blocks} b
+    where b.blocker_id = ${userId}
+      and b.blocked_id = ${messages.senderId}
+      and ${messages.createdAt} >= b.created_at
+      and (b.released_at is null or ${messages.createdAt} < b.released_at)
+  )`;
 }
 
 /**
@@ -157,13 +215,22 @@ export async function listMessages(
 ): Promise<MessageView[]> {
   const db = await getDb();
   const rows = await db
-    .select()
+    .select({
+      message: messages,
+      attachmentId: attachments.id,
+      attachmentName: attachments.filename,
+      attachmentMime: attachments.mime,
+    })
     .from(messages)
+    // 取り消し時に添付は物理削除されるので、外部結合なら自然に消える
+    .leftJoin(attachments, eq(attachments.messageId, messages.id))
     .where(
       and(
         eq(messages.connectionId, connectionId),
         // 「自分の画面から削除」したものは自分には返さない(相手には残る)
         sql`not (${userId} = any(${messages.deletedBy}))`,
+        // ブロック中に届いたものは自分には見せない(F-1)。相手の見え方は変わらない
+        notBlockedFor(userId),
         // ミュートで送られたメッセージも通常どおり届ける。抑止するのは「通知」だけ(D-13)
         since
           ? or(gt(messages.createdAt, since), gt(messages.retractedAt, since))
@@ -172,8 +239,24 @@ export async function listMessages(
     )
     .orderBy(asc(messages.createdAt));
 
+  const { hasLevel } = await import("./level");
+  // 添付が1件も無ければ問い合わせない
+  const attachmentsVisible = rows.some((r) => r.attachmentId)
+    ? await hasLevel(connectionId, 2)
+    : true;
+
   const now = Date.now();
-  return rows.map((r) => toView(r, userId, now));
+  return rows.map((r) =>
+    toView(
+      r.message,
+      userId,
+      now,
+      r.attachmentId
+        ? { id: r.attachmentId, filename: r.attachmentName!, mime: r.attachmentMime! }
+        : undefined,
+      attachmentsVisible,
+    ),
+  );
 }
 
 /**
@@ -212,8 +295,9 @@ export async function sendMessage(
   if (!ctx.canSend) {
     return {
       ok: false,
-      error:
-        ctx.status === "grace" || ctx.status === "expired"
+      error: ctx.blockedByMe
+        ? "この相手をブロックしています。設定から解除できます"
+        : ctx.status === "grace" || ctx.status === "expired"
           ? "期限が終了したため、メッセージは送れません"
           : "この会話にはメッセージを送れません",
     };
@@ -277,6 +361,8 @@ export async function retractMessage(
     .update(messages)
     .set({ retractedAt: new Date(), body: null })
     .where(and(eq(messages.id, messageId), eq(messages.senderId, userId)));
+  // 添付も**行ごと消す**。フラグを立てるだけにすると実体が残る(D-12)
+  await db.delete(attachments).where(eq(attachments.messageId, messageId));
   return { ok: true };
 }
 
@@ -372,6 +458,8 @@ export async function unreadCounts(userId: string): Promise<Map<string, number>>
         ne(messages.senderId, userId),
         isNull(messages.retractedAt),
         sql`not (${userId} = any(${messages.deletedBy}))`,
+        // ブロック中のメッセージは未読にもしない(F-1)。届いていないのだから数えない
+        notBlockedFor(userId),
         or(
           isNull(connectionMembers.lastReadAt),
           gt(messages.createdAt, connectionMembers.lastReadAt),

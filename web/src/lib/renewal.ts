@@ -134,6 +134,13 @@ export async function chooseRenewal(
   userId: string,
   connectionId: string,
   choice: "continue" | "end",
+  /**
+   * E-1 の「恒久化を提案」から呼ぶときは、期限24時間前より前でも受け付ける。
+   *
+   * 早める側にしか効かないので D-16 は破れない。
+   * 「継続しない」は従来どおり継続確認の期間内でしか選べない。
+   */
+  opts: { fromProposal?: boolean } = {},
 ): Promise<ChooseResult> {
   const db = await getDb();
   const [row] = await db
@@ -159,7 +166,8 @@ export async function chooseRenewal(
   const status = deriveStatus(row);
   if (status === "permanent") return { ok: true, becamePermanent: true };
   if (status === "expired") return { ok: false, error: "この接続はすでに終了しています" };
-  if (!canChooseRenewal(row)) {
+  const fromProposal = opts.fromProposal === true && choice === "continue";
+  if (!fromProposal && !canChooseRenewal(row)) {
     return { ok: false, error: "継続確認はまだ受け付けていません" };
   }
 
@@ -173,7 +181,7 @@ export async function chooseRenewal(
     });
 
   // 誰が選んだかは載せない(D-3)。期限後継続率の分子/分母に使う匿名カウンタ
-  track({ name: "renewal_choice", choice });
+  track(fromProposal ? { name: "permanent_proposed" } : { name: "renewal_choice", choice });
 
   const becamePermanent = choice === "continue" && (await promoteIfBothContinue(connectionId));
   if (becamePermanent) {

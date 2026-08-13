@@ -44,7 +44,7 @@ export default async function HomePage({
           <div className="name">{user.displayName}</div>
           <div className="mono sub">@{user.handle}</div>
         </div>
-        <Link href="/settings/devices" className="badge">設定</Link>
+        <Link href="/settings" className="badge">設定</Link>
       </header>
 
       {already && <p className="notice">すでにつながっています。</p>}

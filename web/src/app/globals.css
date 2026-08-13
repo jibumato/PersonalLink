@@ -907,3 +907,183 @@ a {
   background: rgba(91, 122, 132, 0.1);
   box-shadow: inset 0 0 0 1px rgba(91, 122, 132, 0.25);
 }
+
+/* ============================================================
+   S5: レベルと安全機能
+   ============================================================ */
+
+/* E-1 レベルゲージ。0〜4の現在地を一目で */
+.gauge {
+  display: flex;
+  gap: 0.3rem;
+  margin: 0.8rem 0 1rem;
+}
+
+.gaugestep {
+  flex: 1;
+  padding: 0.35rem 0;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: rgba(8, 145, 178, 0.06);
+  border: 1px solid var(--line-soft);
+  border-radius: 2px;
+}
+
+.gaugestep.on {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent-deep);
+}
+
+/* E-1 機能リスト */
+.levellist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.levellist li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.levellist li:first-child {
+  border-top: none;
+}
+
+.levellist .name {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.levellist .sub {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.btn-sm {
+  flex: none;
+  width: auto;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.78rem;
+}
+
+/* C-2 承諾カード。会話の流れの中に置く */
+.proposal {
+  align-self: center;
+  width: min(22rem, 92%);
+  margin: 0.6rem 0;
+  padding: 0.9rem;
+  background: rgba(255, 255, 255, calc(var(--glass) + 0.2));
+  border: 1px solid rgba(8, 145, 178, 0.4);
+  border-radius: 6px;
+}
+
+.ptitle {
+  margin: 0 0 0.3rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.prow {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.7rem 0 0.4rem;
+}
+
+.prow .btn {
+  flex: 1;
+}
+
+/* L4 詳細プロフィール */
+.deflist > div {
+  display: flex;
+  gap: 0.8rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.deflist > div:first-child {
+  border-top: none;
+}
+
+.deflist dt {
+  flex: none;
+  width: 5rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.deflist dd {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+/* 添付 */
+.msgimg {
+  display: block;
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.msgfile {
+  display: inline-block;
+  padding: 0.2rem 0;
+  color: inherit;
+  font-size: 0.88rem;
+  text-decoration: underline;
+}
+
+.hidden {
+  display: none;
+}
+
+/* F-1 / F-2 のフォーム部品。.field は入力そのものの見た目なので、
+   ラベル付きの行は .formrow で包む */
+.formrow {
+  display: block;
+}
+
+.formrow > span {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+textarea.field,
+select.field {
+  display: block;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.check input {
+  margin-top: 0.2rem;
+  flex: none;
+}
+
+/* 危険域。目立たせるが、押しづらくはしない */
+.panel.danger {
+  border-color: rgba(214, 69, 93, 0.3);
+}
+
+.panel.danger .eyebrow {
+  color: var(--bad);
+}

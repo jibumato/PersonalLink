@@ -1,6 +1,6 @@
 # PersonalLink データモデル設計
 
-**Version 0.3 / 2026年8月**(S4 期限エンジンの実装に合わせて更新)
+**Version 0.4 / 2026年8月**(S5 レベル・安全機能の実装に合わせて更新)
 
 > 実装は [web/src/db/schema.ts](../web/src/db/schema.ts)。各スプリントで追加した点は「Sxで追加」と明記した。
 
@@ -152,26 +152,84 @@ QRペイロード = `token_id + サーバー署名(HMAC)`。読み取り側API�
 
 (connection_id, user_id) UNIQUE。1つのConnectionに必ず2行。同一ペアの `active/grace/permanent` なConnectionは同時に1つまで(部分UNIQUE制約)。expired後の再接続は新規行。
 
-### level_grants(解放済みレベル)
+### level_grants(解放済みレベル)— **S5で実装**
 
 | カラム | 型 | 備考 |
 |---|---|---|
+| id | uuid PK | |
 | connection_id | uuid FK | |
-| level | int | 2 / 3 / 4 |
+| level | int | **CHECK `level in (2, 4)`**。Lv.3(通話)はMVPでは提供しないので、値として入れられなくしてある(D-6)。実装時にマイグレーションで開ける |
 | granted_at | timestamptz | |
-| revoked_at | timestamptz NULL | 停止は一方的・即時(D-5)。revoked_byを記録 |
+| revoked_at | timestamptz NULL | 停止は一方的・即時(D-5)|
+| revoked_by | uuid FK NULL | 運用調査用。**UIには一切出さない** — 誰が停めたかを見せると咎める空気になる |
+
+**S5の実装**: 生きている解放は (接続, レベル) につき1つ(`revoked_at is null` の部分UNIQUE)。
+`revoked_at` と `revoked_by` は**同時にNULL / 同時に非NULL**を CHECK で強制する。
 
 Level 1(メッセージ)は成立時に暗黙付与のためレコード不要。
 
-### level_proposals
+### level_proposals — **S5で実装**
 
 | カラム | 型 | 備考 |
 |---|---|---|
+| id | uuid PK | |
 | connection_id | uuid FK | |
-| level | int | |
+| level | int | CHECK `level in (2, 4)` |
 | proposed_by | uuid FK | |
 | proposed_at | timestamptz | 再提案は72hに1回(アプリ層で制御)|
-| accepted_at | timestamptz NULL | 承諾で level_grants 作成。「今はしない」はレコード変更なし(拒否状態を持たない=D-5)|
+| accepted_at | timestamptz NULL | 承諾で level_grants 作成 |
+| **dismissed_at** | timestamptz NULL | **S5で追加**。「今はしない」で受け手がカードを閉じた時刻 |
+
+**拒否状態は持たない(D-5)**。`rejected_at` に相当するカラムは存在しない。
+
+`dismissed_at` は**閉じた本人の表示制御にしか使わない**。提案者に返さないので、
+断ったことは伝わらない。提案自体は保留のまま残り、あとから E-1 で承諾できる。
+データモデル v0.1 では「レコード変更なし」としていたが、それだと閉じたカードが
+毎回戻ってきて催促になるため、**自分側の表示状態としてのみ**持つことにした。
+
+### attachments — **S5で実装**([T-12](05-tech-stack.md))
+
+| カラム | 型 | 備考 |
+|---|---|---|
+| id | uuid PK | |
+| message_id | uuid FK | ON DELETE CASCADE |
+| mime / filename / bytes | text / text / int | 受け入れるMIMEは許可リストで絞る(実行可能形式を弾く)|
+| **data** | bytea | **実体をDBに置く**。理由は容量ではなく削除の確実性(T-12)|
+
+- 上限 5MB。CHECK制約にも同じ値を刻む
+- 取り出しは `/api/a/:id`。**毎回**「参加者か」と「Lv.2 が生きているか」を確認する
+- **共有を停止すると、すでに送った添付も見えなくなる**(T-6の要件)。ファイル名も返さない
+
+### blocks — **S5で実装**
+
+| カラム | 型 | 備考 |
+|---|---|---|
+| id | uuid PK | |
+| blocker_id / blocked_id | uuid FK | CHECK で自分自身を弾く |
+| created_at | timestamptz | |
+| released_at | timestamptz NULL | 解除しても**行を消さない** |
+
+**silent block(F-1)**: 相手に通知せず、相手のUIも変えない。相手の送信は成功し、
+「送信済み」と表示される。変わるのは**ブロックした側に見えるか**だけ。
+
+解除しても**ブロック中のメッセージは配信しない**。そのために「いつからいつまで」が要るので、
+解除済みの行を期間として残す。生きているブロックは1組1つ(部分UNIQUE)。
+
+### reports — **S5で実装**
+
+| カラム | 型 | 備考 |
+|---|---|---|
+| id | uuid PK | |
+| reporter_id / target_user_id | uuid FK | CHECK で自己通報を弾く |
+| connection_id | uuid FK NULL | ON DELETE SET NULL |
+| category | enum | なりすまし / 迷惑行為 / 不適切なコンテンツ / その他 |
+| detail | text NULL | 任意 |
+| with_messages | boolean | 「直近20件を提供する」への同意。**既定 false** |
+| evidence | jsonb NULL | 同意があるときだけ入る |
+
+**CHECK `with_messages or evidence is null`** — 同意していないのに証跡が付いた行を
+DBが拒否する(D-10 / 憲法第二条)。取り消し済みメッセージの本文は物理削除されているので、
+同意があっても**含みようがない**(D-12)。
 
 ### renewal_choices(継続選択)— **S4で実装**
 
@@ -220,22 +278,10 @@ Level 1(メッセージ)は成立時に暗黙付与のためレコード不要�
 **既読カラムは存在しない**(D-8)。相手が読んだかを保存する場所そのものを作っていない。
 未読バッジ用の `connection_members.last_read_at` は**自分側の情報**で、APIから相手に返さない。
 
-attachments: id / message_id / storage_key / mime / size / created_at。`image`/`file` の送信APIは **level_grants(level=2, revoked_at IS NULL) の存在を必ず検証**。
+添付の実体は上記 [attachments](#attachments--s5で実装t-12) を参照(S5で `storage_key` ではなく `data` になった)。
+`image`/`file` の送受信は **level_grants(level=2, revoked_at IS NULL) を毎回検証**する。
 
 システムメッセージ(成立/レベル解放/恒久化/期限終了)も messages(kind=system)としてタイムラインに永続化。
-
-### blocks
-
-| カラム | 型 | 備考 |
-|---|---|---|
-| blocker_id / blocked_id | uuid FK | UNIQUE複合 |
-| created_at | timestamptz | |
-
-Silent block: 被ブロック側の送信APIは**正常応答**を返し、配信のみ抑止する。既存Connectionのstatusは変更しない(状態変化が漏洩シグナルになるため)。
-
-### reports
-
-reporter_id / reported_id / connection_id / category / detail / evidence_message_ids(**同意時のみ**、D-10)/ created_at。
 
 ### groups / group_members / group_messages
 
@@ -248,10 +294,10 @@ group_messages: messagesと同構造(レベル検証なし=D-11)。
 ## 3. 主要な不変条件まとめ
 
 1. メッセージ送信可 ⟺ connection.status ∈ {active, permanent} かつ 送信者が非ブロック対象
-2. 画像・ファイル送信可 ⟺ 上記 + level 2 が granted かつ未revoke(1対1のみ。グループは対象外)
+2. 画像・ファイル送信可 ⟺ 上記 + level 2 が granted かつ未revoke(1対1のみ。グループは対象外)。**閲覧も同じ条件** — 停止したら過去に送られたものも見えなくなる(T-6)
 3. `expires_at = NULL` ⟺ status = permanent
 4. `renewal_choices.choice = 'end'` は相手に一切露出しない(APIレベルで保証)。**かつ終了タイミングを変えない** — 終了は選択によらず常に猶予終了時(D-16)
-5. 相手のL4プロフィール参照可 ⟺ level 4 granted かつ未revoke
+5. 相手のL4プロフィール参照可 ⟺ level 4 granted かつ未revoke。**解放されていなければDBから取りに行かない**(取ってから隠す形にしない)
 6. grace中: 送信不可・閲覧可・renewal_choices受付可
 7. 同一ペアの生きたConnection(active/grace/permanent)は最大1つ
 8. 送信取り消し可 ⟺ 送信者本人 かつ `created_at` から24時間以内 かつ status ≠ expired。取り消し時に本文・添付を物理削除し、取り消しのプッシュ通知は送らない(D-12)

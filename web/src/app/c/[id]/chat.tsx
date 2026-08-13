@@ -3,8 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MessageView } from "@/lib/message";
-import { deleteHistory, hideForMe, poll, reload, retract, send } from "@/app/actions/chat";
+import {
+  deleteHistory,
+  hideForMe,
+  poll,
+  reload,
+  retract,
+  send,
+  sendAttachmentAction,
+} from "@/app/actions/chat";
 import { MessageSheet } from "./message-sheet";
+import { ProposalCard } from "./proposal-card";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -20,11 +29,17 @@ export function Chat({
   initial,
   canSend,
   status,
+  canAttach,
+  pendingProposal,
 }: {
   connectionId: string;
   initial: MessageView[];
   canSend: boolean;
   status: "active" | "grace" | "permanent" | "expired";
+  /** Lv.2 が解放されているか(不変条件2)。サーバー側でも必ず再確認する */
+  canAttach: boolean;
+  /** 相手からの未承諾の提案(C-2)。自分が閉じたものは渡ってこない */
+  pendingProposal: { level: number; label: string } | null;
 }) {
   const router = useRouter();
   const [items, setItems] = useState<MessageView[]>(initial);
@@ -33,6 +48,7 @@ export function Chat({
   const [sheetFor, setSheetFor] = useState<MessageView | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const composing = useRef(false);
   const sending = useRef(false);
@@ -99,6 +115,22 @@ export function Chat({
     }
   }
 
+  /** 添付の送信(不変条件2)。ゲートはサーバーが持つ */
+  async function onPickFile(file: File) {
+    setError(null);
+    const form = new FormData();
+    form.set("connectionId", connectionId);
+    form.set("muted", muted ? "1" : "0");
+    form.set("file", file);
+    const r = await sendAttachmentAction(form);
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    // 添付IDはサーバーで採番されるので、取り直して確実に描く
+    setItems(await reload(connectionId));
+  }
+
   async function onRetract(id: string) {
     setSheetFor(null);
     const r = await retract(id);
@@ -132,12 +164,45 @@ export function Chat({
         {items.map((m) => (
           <Bubble key={m.id} m={m} onOpen={() => m.mine && setSheetFor(m)} />
         ))}
+        {/* C-2 相手からの提案。承諾するまで何も解放されない(D-5) */}
+        {pendingProposal && (
+          <ProposalCard
+            connectionId={connectionId}
+            level={pendingProposal.level}
+            label={pendingProposal.label}
+          />
+        )}
       </div>
 
       {error && <p className="hint hint-error chaterror">{error}</p>}
 
       {canSend ? (
         <div className="inputbar">
+          {/* Lv.2 が解放されていないときはボタン自体を出さない(C-2 へ誘導する) */}
+          {canAttach && (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                className="hidden"
+                aria-label="写真・ファイルを選ぶ"
+                accept="image/*,.pdf,.txt,.zip,.doc,.docx,.xlsx"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) void onPickFile(f);
+                }}
+              />
+              <button
+                type="button"
+                className="mutetoggle"
+                aria-label="写真・ファイルを送る"
+                onClick={() => fileRef.current?.click()}
+              >
+                📎
+              </button>
+            </>
+          )}
           <button
             type="button"
             className={`mutetoggle${muted ? " on" : ""}`}
@@ -242,8 +307,24 @@ function Bubble({ m, onOpen }: { m: MessageView; onOpen: () => void }) {
   const cls = `msg ${m.mine ? "me" : "them"}`;
   const content = (
     <>
+      {/* 共有が停止された添付。ファイル名も出さない(T-6) */}
+      {m.locked && <span className="body locked">🔒 共有が停止されています</span>}
+      {/* 添付。取り消されると行ごと消えるので、ここに来ることはない(D-12) */}
+      {m.attachment &&
+        (m.kind === "image" ? (
+          // eslint-disable-next-line @next/next/no-img-element -- 参加者チェック付きの動的配信のため最適化を通さない
+          <img
+            className="msgimg"
+            src={`/api/a/${m.attachment.id}`}
+            alt={m.attachment.filename}
+          />
+        ) : (
+          <a className="msgfile" href={`/api/a/${m.attachment.id}`} download>
+            📎 {m.attachment.filename}
+          </a>
+        ))}
       {/* 本文は独立した要素にする(「送信済み」と同じ要素に混ぜない) */}
-      <span className="body">{m.body}</span>
+      {m.kind !== "image" && !m.attachment && <span className="body">{m.body}</span>}
       {m.mine && (
         <span className="st">
           {/* 既読は表示しない(D-8)。ミュートの印は自分の吹き出しにだけ付く(D-13) */}

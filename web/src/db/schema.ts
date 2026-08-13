@@ -8,11 +8,13 @@
  * S2: qr_tokens / connections / connection_members
  * S3: messages
  * S4: renewal_choices
+ * S5: level_proposals / level_grants / attachments / blocks / reports
  */
 import { sql } from "drizzle-orm";
 import {
   pgTable,
   pgEnum,
+  customType,
   uuid,
   text,
   integer,
@@ -24,6 +26,11 @@ import {
   primaryKey,
   check,
 } from "drizzle-orm/pg-core";
+
+/** 添付の実体(bytea)。理由は attachments のコメント参照。 */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => "bytea",
+});
 
 /** @ID(handle)の形式。API・DB・UIで同じ規則を使う。 */
 export const HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/;
@@ -332,3 +339,205 @@ export const renewalChoices = pgTable(
 );
 
 export type RenewalChoice = typeof renewalChoices.$inferSelect;
+
+// ============================================================
+// S5: レベルと安全機能
+// ============================================================
+
+/**
+ * 解放できるレベル(仕様書 E-1)。
+ *
+ * Lv.1(メッセージ)は成立時に暗黙で付くのでレコードを持たない。
+ * **Lv.3(音声・通話)はMVPでは提案不可**(D-6)。値として存在させると
+ * 「準備中」のはずのものが解放されうるので、CHECK制約で入れられなくしてある。
+ * 実装するときにマイグレーションで開ける。
+ */
+export const GRANTABLE_LEVELS = [2, 4] as const;
+export type GrantableLevel = (typeof GRANTABLE_LEVELS)[number];
+
+/** 同じレベルを再提案できるようになるまでの間隔(仕様書 C-2。催促スパム防止)。 */
+export const REPROPOSE_INTERVAL_HOURS = 72;
+
+/**
+ * レベルの提案(C-2)。
+ *
+ * ⚠️ **拒否を記録するカラムを持たない**(D-5)。
+ * 「今はしない」は提案を消さず、受け取った側がカードを閉じるだけ。
+ * `dismissed_at` は**閉じた本人にしか使わない**表示状態で、提案者には返さない。
+ * 提案は保留のまま残り、あとから E-1 で承諾できる。
+ */
+export const levelProposals = pgTable(
+  "level_proposals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    level: integer("level").notNull(),
+    proposedBy: uuid("proposed_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    proposedAt: timestamp("proposed_at", { withTimezone: true }).notNull().defaultNow(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    /** 受け取った側がカードを閉じた時刻。**提案者には絶対に返さない**(D-5)。 */
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("level_proposals_connection_idx").on(t.connectionId, t.level),
+    check("level_proposals_level", sql`${t.level} in (2, 4)`),
+  ],
+);
+
+/**
+ * 解放済みレベル(E-1)。
+ *
+ * 解放は双方合意、**停止は一方的・即時**(D-5)。
+ * 停止しても行は消さず `revoked_at` を刻む — 再提案の履歴として要るため。
+ */
+export const levelGrants = pgTable(
+  "level_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    level: integer("level").notNull(),
+    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedBy: uuid("revoked_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    // 生きている解放は (接続, レベル) につき1つ。二重解放を作れない
+    uniqueIndex("level_grants_alive_unique")
+      .on(t.connectionId, t.level)
+      .where(sql`${t.revokedAt} is null`),
+    check("level_grants_level", sql`${t.level} in (2, 4)`),
+    // 停止したなら誰が停めたかが必ず残る
+    check(
+      "level_grants_revoked_has_actor",
+      sql`(${t.revokedAt} is null) = (${t.revokedBy} is null)`,
+    ),
+  ],
+);
+
+/** 添付できる最大サイズ。DBに直接入れるので控えめにする。 */
+export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
+/**
+ * 添付ファイルの実体([T-12](../../../docs/05-tech-stack.md))。
+ *
+ * **本文を外部ストレージではなく Postgres に置いている。** 理由は容量ではなく削除の確実性:
+ *
+ * - D-12 の取り消しは**物理削除**。同じトランザクションで消えないと「消したつもり」が残る
+ * - 憲法第六条(アカウント削除)も同じ。`ON DELETE CASCADE` で必ず道連れにできる
+ * - オブジェクトストレージだと孤児が出るし、削除の完了を保証しづらい
+ *
+ * 規模が問題になったら storage 層だけ差し替える(`lib/attachment.ts` に閉じている)。
+ */
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    messageId: uuid("message_id")
+      .notNull()
+      .references(() => messages.id, { onDelete: "cascade" }),
+    mime: text("mime").notNull(),
+    /** 表示用のファイル名。画像は出さないこともある */
+    filename: text("filename").notNull(),
+    bytes: integer("bytes").notNull(),
+    data: bytea("data").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("attachments_message_idx").on(t.messageId),
+    // 数値は sql.raw で埋め込む。テンプレート補間だとバインド変数になり、CHECK に使えない
+    check(
+      "attachments_size",
+      sql`${t.bytes} > 0 and ${t.bytes} <= ${sql.raw(String(MAX_ATTACHMENT_BYTES))}`,
+    ),
+  ],
+);
+
+/**
+ * ブロック(F-1)。**silent** — 相手には一切通知されず、相手のUIは何も変わらない。
+ *
+ * 解除しても**ブロック中に届かなかったメッセージは配信しない**。
+ * そのためには「いつからいつまでブロックしていたか」が要るので、
+ * 解除しても行を消さず `released_at` を刻んで期間として残す。
+ */
+export const blocks = pgTable(
+  "blocks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    blockerId: uuid("blocker_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedId: uuid("blocked_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("blocks_blocker_idx").on(t.blockerId),
+    // 生きているブロックは1組につき1つ
+    uniqueIndex("blocks_alive_unique")
+      .on(t.blockerId, t.blockedId)
+      .where(sql`${t.releasedAt} is null`),
+    check("blocks_not_self", sql`${t.blockerId} <> ${t.blockedId}`),
+  ],
+);
+
+export const reportCategory = pgEnum("report_category", [
+  "impersonation",
+  "harassment",
+  "inappropriate",
+  "other",
+]);
+
+/**
+ * 通報(F-1)。
+ *
+ * 本文の提供は**明示同意があるときだけ**(D-10 / 憲法第二条)。
+ * 同意がなければ `evidence` は NULL のまま — 「同意していないのに本文が入っている」
+ * 状態を作れないよう、CHECK制約で結びつけてある。
+ *
+ * 取り消し済みメッセージの本文は物理削除されているので、証跡にも**含みようがない**(D-12)。
+ */
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reporterId: uuid("reporter_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    targetUserId: uuid("target_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    connectionId: uuid("connection_id").references(() => connections.id, {
+      onDelete: "set null",
+    }),
+    category: reportCategory("category").notNull(),
+    detail: text("detail"),
+    /** 「直近20件を運営に提供する」への同意。既定OFF */
+    withMessages: boolean("with_messages").notNull().default(false),
+    /** 同意があるときだけ入る。無いときは NULL */
+    evidence: jsonb("evidence").$type<{ at: string; mine: boolean; body: string | null }[]>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("reports_target_idx").on(t.targetUserId),
+    // 同意していないのに証跡が付いている、を作れなくする
+    check(
+      "reports_evidence_needs_consent",
+      sql`${t.withMessages} or ${t.evidence} is null`,
+    ),
+    check("reports_not_self", sql`${t.reporterId} <> ${t.targetUserId}`),
+  ],
+);
+
+export type LevelGrant = typeof levelGrants.$inferSelect;
+export type LevelProposal = typeof levelProposals.$inferSelect;
+export type Attachment = typeof attachments.$inferSelect;
+export type Block = typeof blocks.$inferSelect;
+export type Report = typeof reports.$inferSelect;

@@ -178,3 +178,22 @@ export async function getPublicProfile(userId: string) {
     .limit(1);
   return row ?? null;
 }
+
+/**
+ * 詳細プロフィール(Level 4)。
+ *
+ * ⚠️ **呼ぶ前に必ず Lv.4 の解放を確認すること。** この関数は権限を見ない。
+ * 「取ってから隠す」形にすると、隠し忘れがそのまま漏洩になる。
+ * 呼び出し側(E-1)は、解放されていなければ**そもそも呼ばない**。
+ */
+export async function getDetailProfile(
+  userId: string,
+): Promise<Record<string, string> | null> {
+  const db = await getDb();
+  const [row] = await db
+    .select({ detail: profiles.detail })
+    .from(profiles)
+    .where(eq(profiles.userId, userId))
+    .limit(1);
+  return row?.detail ?? null;
+}
