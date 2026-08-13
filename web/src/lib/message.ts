@@ -54,6 +54,11 @@ export type MessageView = {
   attachment?: { id: string; filename: string; mime: string };
   /** Lv.2 が停止されていて中身を見られない状態(T-6)。本文もファイル名も出さない */
   locked?: boolean;
+  /**
+   * 送信者の表示名。**グループでのみ入る**(G-2)。
+   * 1対1では誰の発言かが自明なので載せない。
+   */
+  senderName?: string;
 };
 
 export type ChatContext = {
@@ -167,6 +172,16 @@ function toView(
       now - row.createdAt.getTime() < RETRACT_WINDOW_HOURS * 60 * 60 * 1000;
   }
   return view;
+}
+
+/** グループ側から使うため公開する。1対1と同じ見え方の規則(D-8 / D-13)を共有する。 */
+export function toMessageView(
+  row: typeof messages.$inferSelect,
+  userId: string,
+  now = Date.now(),
+  attachment?: { id: string; filename: string; mime: string },
+): MessageView {
+  return toView(row, userId, now, attachment);
 }
 
 /** 添付を送った直後、送信者に返す1件分。添付IDは送信元でも取り直す。 */
@@ -343,12 +358,14 @@ export async function retractMessage(
       status: connections.status,
     })
     .from(messages)
-    .innerJoin(connections, eq(connections.id, messages.connectionId))
+    // グループのメッセージは Connection を持たないので外部結合(D-11)
+    .leftJoin(connections, eq(connections.id, messages.connectionId))
     .where(eq(messages.id, messageId))
     .limit(1);
 
   if (!row || row.senderId !== userId) return { ok: false, error: "取り消せません" };
   if (row.retractedAt) return { ok: true };
+  // グループには期限が無いので、この判定は1対1のときだけ
   if (row.status === "expired") {
     return { ok: false, error: "終了した接続では取り消せません" };
   }
@@ -455,6 +472,8 @@ export async function unreadCounts(userId: string): Promise<Map<string, number>>
     )
     .where(
       and(
+        // 1対1のぶんだけ。グループは groupUnreadCounts が数える
+        sql`${messages.connectionId} is not null`,
         ne(messages.senderId, userId),
         isNull(messages.retractedAt),
         sql`not (${userId} = any(${messages.deletedBy}))`,
@@ -467,7 +486,7 @@ export async function unreadCounts(userId: string): Promise<Map<string, number>>
       ),
     )
     .groupBy(messages.connectionId);
-  return new Map(rows.map((r) => [r.connectionId, r.count]));
+  return new Map(rows.map((r) => [r.connectionId!, r.count]));
 }
 
 /**

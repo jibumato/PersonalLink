@@ -1,0 +1,1 @@
+ALTER TABLE "connections" ADD COLUMN "permanent_at" timestamp with time zone;

@@ -51,7 +51,12 @@ export type AnalyticsEvent =
     }
   // F-2 データ(S5)
   | { name: "data_exported" }
-  | { name: "account_deleted"; daysSinceSignup: number };
+  | { name: "account_deleted"; daysSinceSignup: number }
+  // G-1 / G-2 グループ(S6)
+  | { name: "group_created"; members: number }
+  | { name: "group_joined" }
+  | { name: "group_left" }
+  | { name: "group_deleted" };
 
 /**
  * イベントを記録する。

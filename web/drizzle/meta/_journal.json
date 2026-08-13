@@ -36,6 +36,20 @@
       "when": 1786631646107,
       "tag": "0004_s5_levels_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786635570026,
+      "tag": "0005_s6_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786636081656,
+      "tag": "0006_s6_permanent_at",
+      "breakpoints": true
     }
   ]
 }

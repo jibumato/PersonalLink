@@ -1,6 +1,6 @@
 # PersonalLink データモデル設計
 
-**Version 0.4 / 2026年8月**(S5 レベル・安全機能の実装に合わせて更新)
+**Version 0.5 / 2026年8月**(S6 グループ・計測の実装に合わせて更新)
 
 > 実装は [web/src/db/schema.ts](../web/src/db/schema.ts)。各スプリントで追加した点は「Sxで追加」と明記した。
 
@@ -19,15 +19,15 @@ erDiagram
     users ||--o{ qr_tokens : "発行"
     users ||--o{ connection_members : ""
     connections ||--|{ connection_members : "2名"
-    connections ||--o{ messages : ""
+    connections ||--o{ messages : "1対1"
+    groups ||--o{ messages : "グループ"
     connections ||--o{ level_grants : "解放済みレベル"
     connections ||--o{ level_proposals : ""
     connections ||--o{ renewal_choices : "継続選択"
     messages ||--o{ attachments : ""
     users ||--o{ blocks : "blocker"
     users ||--o{ reports : "reporter"
-    groups ||--o{ group_members : ""
-    groups ||--o{ group_messages : ""
+    groups ||--o{ group_members : "招待→参加"
     users ||--o{ group_members : ""
 ```
 
@@ -135,6 +135,7 @@ QRペイロード = `token_id + サーバー署名(HMAC)`。読み取り側API�
 | grace_until | timestamptz NULL | expires_at + 48h |
 | established_at | timestamptz | |
 | ended_at | timestamptz NULL | |
+| **permanent_at** | timestamptz NULL | **S6で追加**。恒久になった時刻。`status` だけでは「いつ恒久になったか」が分からず、KPI「恒久化後30日の継続率」が測れないため持つ |
 
 `expiring`(残り24h)は状態ではなく `expires_at - now < 24h` の導出値。状態遷移は分単位のバッチジョブ+読み取り時の遅延評価の二重化で駆動する。
 
@@ -283,9 +284,42 @@ DBが拒否する(D-10 / 憲法第二条)。取り消し済みメッセージの
 
 システムメッセージ(成立/レベル解放/恒久化/期限終了)も messages(kind=system)としてタイムラインに永続化。
 
-### groups / group_members / group_messages
+### groups / group_members — **S6で実装**
 
-groups: id / name / icon_url / owner_id / created_at。
+> ⚠️ **`group_messages` は作らなかった。** グループのメッセージは `messages` に
+> `group_id` を足して同居させている(下記)。取り消し(D-12)とミュート(D-13)の実装を
+> 2つに分けると、片方だけ直して片方が取り残されるため。
+
+| groups | 型 | 備考 |
+|---|---|---|
+| id | uuid PK | |
+| name | text | CHECK で空文字を弾く |
+| owner_id | uuid FK | 作成者。メンバー削除とグループ削除ができる唯一の人 |
+| created_at / deleted_at | timestamptz | 削除は論理削除(全員の一覧から即座に消える)|
+
+**期限もレベルも持たない**(D-11)。グループでの同席は1対1の信頼を動かさず、
+1対1が終了してもグループ内の会話は続く。
+
+| group_members | 型 | 備考 |
+|---|---|---|
+| group_id / user_id | uuid FK | PK(group_id, user_id)|
+| invited_by / invited_at | uuid FK / timestamptz | |
+| **joined_at** | timestamptz NULL | **NULL = 招待されたがまだ参加していない**。勝手に入れない(G-1)|
+| left_at | timestamptz NULL | 退出・削除。履歴の見え方を決めるので行は消さない |
+| last_read_at | timestamptz NULL | 自分の未読バッジ用。⚠️ 他のメンバーには返さない(D-8)|
+
+招待を断ったことは**タイムラインに残さない**。参加していない人の不参加を全員に知らせる
+必要はない(D-5 と同じ考え方)。
+
+### messages のスレッド所属(S6で変更)
+
+`messages.connection_id` を **NULL 許容**にし、`group_id` を追加した。
+
+**CHECK `(connection_id is null) <> (group_id is null)`** —
+1対1かグループのどちらか一方にしか属せない。両方でも、どちらでもなくてもDBが拒否する。
+
+これにより、取り消し・ミュート・「自分の画面から削除」は
+**1対1とグループで同じ実装**が動く。
 group_members: group_id / user_id / joined_at / left_at(招待→参加確認制)。
 group_messages: messagesと同構造(レベル検証なし=D-11)。
 
@@ -301,7 +335,8 @@ group_messages: messagesと同構造(レベル検証なし=D-11)。
 6. grace中: 送信不可・閲覧可・renewal_choices受付可
 7. 同一ペアの生きたConnection(active/grace/permanent)は最大1つ
 8. 送信取り消し可 ⟺ 送信者本人 かつ `created_at` から24時間以内 かつ status ≠ expired。取り消し時に本文・添付を物理削除し、取り消しのプッシュ通知は送らない(D-12)
-9. `muted` は受信側クライアントに一切露出しない。取り消し済みメッセージの本文・添付は通報時の証跡(evidence)にも含まれない — 物理削除済みのため含めようがない、を保証する(D-12・D-13)
+9. メッセージは1対1かグループの**どちらか一方**にしか属さない(CHECK)。グループには期限もレベルも無い(D-11)
+10. `muted` は受信側クライアントに一切露出しない。取り消し済みメッセージの本文・添付は通報時の証跡(evidence)にも含まれない — 物理削除済みのため含めようがない、を保証する(D-12・D-13)
 
 ---
 

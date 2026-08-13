@@ -1087,3 +1087,52 @@ select.field {
 .panel.danger .eyebrow {
   color: var(--bad);
 }
+
+/* ============================================================
+   S6: グループ
+   ============================================================ */
+
+/* G-2 の発言者名。1対1では出さない */
+.msg .who {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+}
+
+/* KPIダッシュボード */
+.statgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.stat {
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+  background: rgba(8, 145, 178, 0.06);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+}
+
+.statv {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--accent-deep);
+}
+
+.statl {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.kpival {
+  flex: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+}

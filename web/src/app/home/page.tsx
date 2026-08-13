@@ -9,6 +9,7 @@ import {
   type ConnectionListItem,
 } from "@/lib/connection";
 import { unreadCounts } from "@/lib/message";
+import { groupUnreadCounts, listGroups } from "@/lib/group";
 import { logout } from "@/app/actions/auth";
 import { Established } from "./established";
 
@@ -23,9 +24,11 @@ export default async function HomePage({
   if (!user.displayName) redirect("/signup/profile");
 
   const { established, already, tab } = await searchParams;
-  const [items, unread] = await Promise.all([
+  const [items, unread, groups, groupUnread] = await Promise.all([
     listConnections(user.userId),
     unreadCounts(user.userId),
+    listGroups(user.userId),
+    groupUnreadCounts(user.userId),
   ]);
   const justConnected = established ? items.find((i) => i.id === established) : undefined;
 
@@ -104,6 +107,39 @@ export default async function HomePage({
             </section>
           )}
         </>
+      )}
+
+      {/* グループは同じ一覧の下に置く。期限もレベルも無いので区別が要る(D-11) */}
+      {!showEnded && (
+        <section className="panel">
+          <p className="eyebrow">グループ</p>
+          {groups.length === 0 ? (
+            <p className="hint">まだグループはありません。</p>
+          ) : (
+            <ul className="rows">
+              {groups.map((g) => (
+                <li key={g.id}>
+                  <Link href={`/g/${g.id}`} className="rowlink">
+                    <span className="grow">
+                      <span className="name">👥 {g.name}</span>
+                      <span className="sub">{g.memberCount}人</span>
+                    </span>
+                    {g.pending ? (
+                      <span className="badge badge-warn">招待</span>
+                    ) : (
+                      (groupUnread.get(g.id) ?? 0) > 0 && (
+                        <span className="badge unread">{groupUnread.get(g.id)}</span>
+                      )
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="stack" style={{ marginTop: ".8rem" }}>
+            <Link href="/groups/new" className="btn btn-secondary">グループを作る</Link>
+          </div>
+        </section>
       )}
 
       <div className="panel">

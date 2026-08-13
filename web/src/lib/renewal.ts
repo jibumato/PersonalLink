@@ -208,7 +208,7 @@ export async function promoteIfBothContinue(connectionId: string): Promise<boole
   // 恒久化 = 期限の撤廃(D-1)。CHECK制約があるので expires_at と grace_until も必ず外す
   const updated = await db
     .update(connections)
-    .set({ status: "permanent", expiresAt: null, graceUntil: null })
+    .set({ status: "permanent", expiresAt: null, graceUntil: null, permanentAt: new Date() })
     .where(and(eq(connections.id, connectionId), ne(connections.status, "permanent")))
     .returning({ id: connections.id });
 

@@ -9,6 +9,7 @@
  * S3: messages
  * S4: renewal_choices
  * S5: level_proposals / level_grants / attachments / blocks / reports
+ * S6: groups / group_members
  */
 import { sql } from "drizzle-orm";
 import {
@@ -202,6 +203,13 @@ export const connections = pgTable(
     graceUntil: timestamp("grace_until", { withTimezone: true }),
     establishedAt: timestamp("established_at", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    /**
+     * 恒久になった時刻(S6で追加)。
+     *
+     * `status` だけでは「いつ恒久になったか」が分からず、
+     * KPI「恒久化後30日のメッセージ継続率」が測れないため持つ。
+     */
+    permanentAt: timestamp("permanent_at", { withTimezone: true }),
   },
   (t) => [
     // 不変条件7: 生きているConnectionは1ペアにつき1つ
@@ -273,9 +281,17 @@ export const messages = pgTable(
   "messages",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    connectionId: uuid("connection_id")
-      .notNull()
-      .references(() => connections.id, { onDelete: "cascade" }),
+    /**
+     * 1対1のメッセージ。グループのときは NULL。
+     *
+     * グループ用に別テーブルを作らないのは、**取り消し(D-12)とミュート(D-13)の
+     * 実装を1つに保つ**ため。2つに分けると、片方だけ直して片方が取り残される。
+     */
+    connectionId: uuid("connection_id").references(() => connections.id, {
+      onDelete: "cascade",
+    }),
+    /** グループのメッセージ。1対1のときは NULL(S5→S6で追加)。 */
+    groupId: uuid("group_id").references(() => groups.id, { onDelete: "cascade" }),
     /** システムメッセージは送信者を持たない。 */
     senderId: uuid("sender_id").references(() => users.id, { onDelete: "cascade" }),
     kind: messageKind("kind").notNull().default("text"),
@@ -294,6 +310,12 @@ export const messages = pgTable(
   },
   (t) => [
     index("messages_connection_idx").on(t.connectionId, t.createdAt),
+    index("messages_group_idx").on(t.groupId, t.createdAt),
+    // メッセージは1対1かグループのどちらか。両方でも、どちらでもなくてもいけない
+    check(
+      "messages_belongs_to_one_thread",
+      sql`(${t.connectionId} is null) <> (${t.groupId} is null)`,
+    ),
     // 取り消し済みなら本文は残っていない(D-12: フラグ削除ではなく物理削除)
     check("messages_retracted_has_no_body", sql`${t.retractedAt} is null or ${t.body} is null`),
     // システムメッセージに送信者はいない / 通常メッセージには必ず送信者がいる
@@ -541,3 +563,61 @@ export type LevelProposal = typeof levelProposals.$inferSelect;
 export type Attachment = typeof attachments.$inferSelect;
 export type Block = typeof blocks.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+
+// ============================================================
+// S6: グループ
+// ============================================================
+
+/**
+ * グループ(仕様書 G-1 / G-2)。
+ *
+ * **期限もレベルも持たない**(D-11)。1対1の Connection とは独立した合意の場で、
+ * グループでの同席は1対1の信頼を1ミリも動かさない。
+ * 逆に、1対1が期限終了してもグループ内の会話は続く。
+ */
+export const groups = pgTable("groups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+}, (t) => [
+  index("groups_owner_idx").on(t.ownerId),
+  check("groups_name_not_empty", sql`length(btrim(${t.name})) > 0`),
+]);
+
+/**
+ * グループの参加者。
+ *
+ * **勝手に入れない**(G-1)。招待された時点では `joined_at` が NULL で、
+ * 本人が参加を選んで初めてメンバーになる。ここを省くと
+ * 「知らないうちに知らない人と同席していた」が起きる。
+ */
+export const groupMembers = pgTable(
+  "group_members",
+  {
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
+    invitedAt: timestamp("invited_at", { withTimezone: true }).notNull().defaultNow(),
+    /** NULL = 招待されたが、まだ参加していない */
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    /** 退出・削除された時刻。履歴の見え方を決めるので行は消さない */
+    leftAt: timestamp("left_at", { withTimezone: true }),
+    /** 自分の未読バッジ用。⚠️ 他のメンバーには返さない(D-8) */
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.groupId, t.userId] }),
+    index("group_members_user_idx").on(t.userId),
+  ],
+);
+
+export type Group = typeof groups.$inferSelect;
+export type GroupMember = typeof groupMembers.$inferSelect;

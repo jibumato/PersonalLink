@@ -148,6 +148,8 @@ export async function loadAttachment(
   if (!row) return null;
   // 自分の画面から消したものは自分には返さない
   if (row.deletedBy.includes(userId)) return null;
+  // グループの添付はレベルに依存しない(D-11)
+  if (row.connectionId === null) return { mime: row.mime, filename: row.filename, data: row.data };
   // 停止されていたら、過去のぶんも渡さない(不変条件2)
   if (!(await hasLevel(row.connectionId, 2))) return null;
   return { mime: row.mime, filename: row.filename, data: row.data };
