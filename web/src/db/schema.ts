@@ -1,8 +1,14 @@
 /**
- * PersonalLink データベーススキーマ
+ * People OS / Personal LINK データベーススキーマ
  *
  * 設計方針([T-3](../../../docs/05-tech-stack.md)):
  * **不変条件はアプリのif文ではなくDBに刻む。** Drizzle を選んだのはそのため。
+ *
+ * ## 二層構造([位置づけ](../../../docs/07-positioning.md))
+ *
+ * - **People OS(基盤)**: users / sessions / profiles / handle_reservations
+ *   — 機能が増えても共有する。@ID は Personal LINK のIDではない
+ * - **Personal LINK(機能)**: それ以外すべて — 「人とどうつながるか」に固有
  *
  * S1: users / sessions / profiles / handle_reservations
  * S2: qr_tokens / connections / connection_members

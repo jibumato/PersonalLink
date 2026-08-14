@@ -163,5 +163,5 @@ test("期限チップを変えると、その期限で成立する", async ({ pa
 test("壊れたトークンは弾かれる", async ({ page }) => {
   await signup(page, handle("bad"), "不正");
   await page.goto("/i#not-a-real-token");
-  await expect(page.getByText("PersonalLinkのQRではありません")).toBeVisible();
+  await expect(page.getByText("Personal LINK のQRではありません")).toBeVisible();
 });

@@ -113,7 +113,7 @@ export const TOKEN_ERROR_MESSAGE: Record<
   Extract<TokenLookup, { ok: false }>["reason"],
   string
 > = {
-  invalid: "PersonalLinkのQRではありません",
+  invalid: "Personal LINK のQRではありません",
   expired: "QRの有効期限が切れています。相手に再表示してもらってください",
   consumed: "このQRは使用済みです。相手に再表示してもらってください",
 };

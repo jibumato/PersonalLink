@@ -3,7 +3,8 @@ import { DataStream } from "@/components/data-stream";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PersonalLink",
+  // People OS の機能「Personal LINK」(docs/07-positioning.md)
+  title: "Personal LINK",
   description: "LINEを教える前に、つながろう。",
 };
 

@@ -10,7 +10,7 @@ export default async function WelcomePage() {
   return (
     <main className="shell" style={{ justifyContent: "center" }}>
       <div className="panel" style={{ textAlign: "center", padding: "2rem 1.4rem" }}>
-        <p className="eyebrow">Personal Link</p>
+        <p className="eyebrow">Personal LINK</p>
         <h1>LINEを教える前に、つながろう。</h1>
         {/* サブコピーは認証方式が決まるまで確定できない(D-7) */}
         <p className="lede">期限付きで、気軽につながる。</p>

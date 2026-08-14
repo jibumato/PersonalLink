@@ -1,4 +1,7 @@
-# PersonalLink データモデル設計
+# Personal LINK データモデル設計
+
+> People OS の基盤テーブル(users / sessions / profiles)と、
+> 機能 Personal LINK のテーブルを両方含む([位置づけ](./07-positioning.md))。
 
 **Version 0.5 / 2026年8月**(S6 グループ・計測の実装に合わせて更新)
 

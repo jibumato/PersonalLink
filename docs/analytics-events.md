@@ -1,4 +1,4 @@
-# PersonalLink 計測設計
+# Personal LINK 計測設計
 
 **Version 0.1 / 2026年8月**(S6で作成)
 

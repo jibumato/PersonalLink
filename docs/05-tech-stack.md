@@ -1,4 +1,4 @@
-# PersonalLink 技術選定メモ
+# People OS / Personal LINK 技術選定メモ
 
 **Version 0.2 / 2026年8月**(S0 成果物。v0.2 で Passkey を見送り、T-2/T-4/T-7/T-10 を改訂)
 

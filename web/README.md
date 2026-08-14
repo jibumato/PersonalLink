@@ -1,4 +1,6 @@
-# PersonalLink Web
+# Personal LINK Web
+
+> People OS の機能「Personal LINK」の Phase 1 アプリケーション([位置づけ](../docs/07-positioning.md))。
 
 Phase 1(Web版MVP)のアプリケーション。技術判断の根拠は [docs/05-tech-stack.md](../docs/05-tech-stack.md)。
 

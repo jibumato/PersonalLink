@@ -1,4 +1,7 @@
-# PersonalLink デザイン言語「GLASS-HUD」
+# People OS デザイン言語「GLASS-HUD」
+
+> **プラットフォーム共通の言語**。Personal LINK だけでなく、
+> 今後 People OS に載るすべての機能で使う([位置づけ](./07-positioning.md))。
 
 **Version 0.2 / 2026年8月**(v0.1のダーク「NEON-HUD」からオーナー指定で**白ベース**へ変更。プロトタイプ v0.2 が実装リファレンス)
 

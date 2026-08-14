@@ -1,4 +1,6 @@
-# PersonalLink 画面設計書(MVP仕様書)
+# Personal LINK 画面設計書(MVP仕様書)
+
+> **People OS の機能「Personal LINK」**の仕様書([位置づけ](./07-positioning.md))。
 
 **Version 0.1.5 / 2026年8月**(変更履歴は文末)
 
