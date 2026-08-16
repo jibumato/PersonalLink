@@ -321,7 +321,7 @@ M8の実測をもって §5 の仮目標を実数で置き換え、**Phase 2(PWA
 | 作業 | 担当 | 期限目安 | Status |
 |---|---|---|---|
 | プロトタイプのユーザーテスト(5名・B-4文言とD-2選択率の定性確認) | 👤 | S2完了まで | ⬜ |
-| 名称の商標・ドメイン確認(**「People OS」と「Personal LINK」の2つ**) | 👤 | **M8前** | ⬜ 位置づけを二層に整理したため、確認対象が2つになった([docs/07-positioning.md](docs/07-positioning.md))|
+| 名称の商標・ドメイン確認(**「People OS」と「Personal LINK」の2つ**) | 👤 | **M8前** | ⬜ 検討済み: **条件付きで People OS 続投を推奨**、確認は**機能名 Personal LINK を優先**(LINE類似+ドメイン登録済み)。候補・フリップ条件は [docs/08-naming.md](docs/08-naming.md) |
 | 利用規約・プライバシーポリシー(最小収集を明文化) | 👤🤖 | M8前必須 | ⬜(S5でエクスポート・削除・通報が入ったので、書ける材料はそろった)|
 | βイベントの候補リストアップ | 👤 | **いま** | ⬜ **S6完了により最優先へ**。実装が終わったので、次に情報が増えるのは実地から |
 | デプロイ時の環境変数: `CRON_SECRET`(期限ジョブの保護)/ `PL_ADMIN_HANDLES`(ダッシュボード閲覧者)/ `PL_DEV_LOGIN` を**本番で設定しない** | 👤 | デプロイ時 | ⬜ **S4で追加、S6で更新** |
@@ -363,3 +363,4 @@ M8の実測をもって §5 の仮目標を実数で置き換え、**Phase 2(PWA
 | 2026-08-13 | **S5 完了**。**人に渡せる状態**になった。技術判断を1つ変更: 添付の実体を Vercel Blob → **Postgres(bytea)**(T-12。削除の確実性が理由)。データモデル v0.4(level_grants / level_proposals / attachments / blocks / reports を実装、level_proposals.dismissed_at を追加)。T-6 の「停止したら過去のぶんも見えない」が実装から抜けていたのを発見して修正 |
 | 2026-08-13 | **S6 完了 = Phase 1 の実装完了**。MVP必須機能がすべて動く。計測用テーブルを作らず運用テーブルから集計する方針を確定([docs/analytics-events.md](docs/analytics-events.md))。`group_messages` を作らず `messages` に同居させ、取り消し・ミュートの実装を1つに保った。データモデル v0.5(groups / group_members / connections.permanent_at)。**次に情報が増えるのは実地から** — M8 のβイベント選定が最優先 |
 | 2026-08-13 | **位置づけを二層に整理**(オーナー指定)。**People OS = プラットフォーム**(@ID・本人確認・憲法・データ主権・デザイン言語)、**Personal LINK = その上の最初の機能**(Connection・QR・チャット・グループ)。境界線の引き方を P-1〜P-3 として [docs/07-positioning.md](docs/07-positioning.md) に明文化。既存の実装がすでに二層に分かれていたため、コード変更は表記のみ。商標確認の対象が2つになった |
+| 2026-08-13 | **名称を検討**(改名候補 vs 続投)。Web検索+DNS簡易調査の結果、有力候補ほど混雑しており(Self OS 多数乱立 / Musubi 国内占有 / Yui 複数使用)、**条件付きで People OS 続投を推奨**([docs/08-naming.md](docs/08-naming.md)、フリップ条件 F-1〜F-4 付き)。副産物として**機能名側のリスク**を発見: personallink.jp が登録済みで、「LINK」は LINE と1字違い+タグラインが LINE を直接参照するため、弁理士確認は機能名を優先する |
