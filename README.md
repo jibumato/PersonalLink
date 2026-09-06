@@ -48,6 +48,7 @@ QR表示 → QR読み取り → Connection成立 → チャット → 7日間 �
 | [ROADMAP.md](ROADMAP.md) | **プロジェクト進行表**(マイルストーン・スプリント・KPIゲート・リスク。進行管理の単一文書) |
 | [docs/00-vision.md](docs/00-vision.md) | 構想書 v0.1(founding document・思想の原典。**編集しない**) |
 | [docs/07-positioning.md](docs/07-positioning.md) | **People OS と Personal LINK の位置づけ**(P-1〜P-3)。境界線の引き方 |
+| [docs/09-data-residency.md](docs/09-data-residency.md) | **データの所在**(D-17)。サーバー保存とE2EEの判断根拠。憲法11条との照合・4方式の比較・段階案 |
 | [docs/01-screen-design.md](docs/01-screen-design.md) | **画面設計書 = MVP仕様書 v0.1.5**。全20画面、Connection状態遷移、設計判断 D-1〜D-16、KPI計測設計 |
 | [docs/02-data-model.md](docs/02-data-model.md) | データモデル v0.5。テーブル定義、不変条件1〜10、憲法との対応表 |
 | [docs/03-design-language.md](docs/03-design-language.md) | デザイン言語「GLASS-HUD」(白ベース)。**People OS 共通**。データストリーム流体背景・AR-ready透過原則 |
@@ -85,6 +86,8 @@ npx playwright test  # E2E(本番ビルドを起動して2台間を検証)
 - **D-10**: メッセージ本文のスキャン・解析は行わない。計測用のテーブルも作らない
 - **D-12**: 送信取り消しは物理削除。CHECK制約で「消し忘れ」を書き込めなくしてある
 - **D-14**: QRは `https://<host>/i#<token>`。標準カメラで読めて、トークンはサーバーに送信されない
+- **D-17**: 目指すのは「保存しない」ではなく「**サーバーが読めない**」。保存していないことは検証できないので
+  第十一条を満たせない。当面は**保存期間を Connection の寿命に縛る**([docs/09-data-residency.md](docs/09-data-residency.md))
 - **P-3**: 機能をまたいで権限は自動伝播しない([docs/07-positioning.md](docs/07-positioning.md))
 
 ## 次のアクション
